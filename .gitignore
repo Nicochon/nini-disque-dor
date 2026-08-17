@@ -1,0 +1,14 @@
+# Documentation de travail : reste en local, contient du contexte médical personnel
+cahier-des-charges-app-suivi.md
+prompt-claude-code.md
+
+# Ancienne version (fonctionnait uniquement dans un artefact Claude,
+# et contient une pesée réelle codée en dur)
+suivi-remise-en-forme.html
+
+# Configuration de l'IDE
+.idea/
+
+# Divers
+.DS_Store
+*.log
