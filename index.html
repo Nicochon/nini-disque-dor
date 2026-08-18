@@ -49,38 +49,6 @@
     👁️ Mode consultation — les données sont en lecture seule.
   </div>
 
-  <!-- ---------- Aujourd'hui (accès rapide, en haut) ---------- -->
-  <div class="card">
-    <h2>Aujourd'hui</h2>
-    <div id="grilleAujourdhui" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:8px;">
-      <div class="today-btn" data-cle="kine_exo"><span class="icon">🏠</span><span class="label">Exo kiné<br>maison</span></div>
-      <div class="today-btn" data-cle="sport"><span class="icon">🏋️</span><span class="label">Sport<br>salle</span></div>
-      <div class="today-btn" data-cle="kine_seance"><span class="icon">🧑‍⚕️</span><span class="label">Séance<br>kiné</span></div>
-      <div class="today-btn" data-cle="regime"><span class="icon">🥗</span><span class="label">Régime</span></div>
-      <div class="today-btn" data-cle="velo"><span class="icon">🚴</span><span class="label">Vélo</span></div>
-    </div>
-
-    <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
-      <div style="display:flex; justify-content:space-between; font-family:var(--sans); font-size:0.85rem;">
-        <span>Douleur dos aujourd'hui</span>
-        <span id="valeurDouleurJour" style="font-weight:700; color:var(--clay);">–</span>
-      </div>
-      <input type="range" id="curseurDouleurJour" min="0" max="10" step="1" style="width:100%; margin-top:8px;">
-      <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#9a9284; font-family:var(--sans);"><span>0 · aucune</span><span>10 · insupportable</span></div>
-      <input type="text" id="noteDouleurJour" placeholder="Contexte (ex : décharge sous la douche, tire après rameur...)" style="margin-top:8px; font-size:0.85rem;">
-      <button class="add ecriture" id="btnEnregistrerDouleurJour" style="width:100%; margin-top:8px;">Enregistrer la douleur du jour</button>
-    </div>
-
-    <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
-      <div style="display:flex; justify-content:space-between; font-family:var(--sans); font-size:0.85rem;">
-        <span>💧 Eau bue aujourd'hui</span>
-        <span id="valeurEau" style="font-weight:700; color:var(--bleu);">0 cl</span>
-      </div>
-      <input type="range" id="curseurEau" min="0" max="200" step="10" style="width:100%; margin-top:8px; accent-color:var(--bleu);">
-      <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#9a9284; font-family:var(--sans);"><span>0 cl</span><span>Objectif 2 L</span></div>
-    </div>
-  </div>
-
   <!-- ---------- Calendrier ---------- -->
   <div class="card">
     <h2>Calendrier</h2>
@@ -113,6 +81,38 @@
         <input type="text" id="noteDouleurPanneau" placeholder="Contexte..." style="font-size:0.85rem;">
         <button class="add ecriture" id="btnEnregistrerPanneau" style="width:100%;">Enregistrer ce jour</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ---------- Aujourd'hui (accès rapide) ---------- -->
+  <div class="card">
+    <h2>Aujourd'hui</h2>
+    <div id="grilleAujourdhui" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:8px;">
+      <div class="today-btn" data-cle="kine_exo"><span class="icon">🏠</span><span class="label">Exo kiné<br>maison</span></div>
+      <div class="today-btn" data-cle="sport"><span class="icon">🏋️</span><span class="label">Sport<br>salle</span></div>
+      <div class="today-btn" data-cle="kine_seance"><span class="icon">🧑‍⚕️</span><span class="label">Séance<br>kiné</span></div>
+      <div class="today-btn" data-cle="regime"><span class="icon">🥗</span><span class="label">Régime</span></div>
+      <div class="today-btn" data-cle="velo"><span class="icon">🚴</span><span class="label">Vélo</span></div>
+    </div>
+
+    <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
+      <div style="display:flex; justify-content:space-between; font-family:var(--sans); font-size:0.85rem;">
+        <span>Douleur dos aujourd'hui</span>
+        <span id="valeurDouleurJour" style="font-weight:700; color:var(--clay);">–</span>
+      </div>
+      <input type="range" id="curseurDouleurJour" min="0" max="10" step="1" style="width:100%; margin-top:8px;">
+      <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#9a9284; font-family:var(--sans);"><span>0 · aucune</span><span>10 · insupportable</span></div>
+      <input type="text" id="noteDouleurJour" placeholder="Contexte (ex : décharge sous la douche, tire après rameur...)" style="margin-top:8px; font-size:0.85rem;">
+      <button class="add ecriture" id="btnEnregistrerDouleurJour" style="width:100%; margin-top:8px;">Enregistrer la douleur du jour</button>
+    </div>
+
+    <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
+      <div style="display:flex; justify-content:space-between; font-family:var(--sans); font-size:0.85rem;">
+        <span>💧 Eau bue aujourd'hui</span>
+        <span id="valeurEau" style="font-weight:700; color:var(--bleu);">0 cl</span>
+      </div>
+      <input type="range" id="curseurEau" min="0" max="200" step="10" style="width:100%; margin-top:8px; accent-color:var(--bleu);">
+      <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#9a9284; font-family:var(--sans);"><span>0 cl</span><span>Objectif 2 L</span></div>
     </div>
   </div>
 
