@@ -55,12 +55,12 @@ function verrouille() {
 }
 
 
-/* Lit dans la table "acces" le rôle du compte connecté.
-   Les policies RLS font que chacun ne voit que sa propre ligne. */
 /* Quand le rôle ne peut pas être déterminé, on garde ici la raison :
    ça évite de chercher longtemps pourquoi l'application semble vide. */
 let raisonSansAcces = null;
 
+/* Lit dans la table "acces" le rôle du compte connecté.
+   Les policies RLS font que chacun ne voit que sa propre ligne. */
 async function chargerRole() {
   raisonSansAcces = null;
   try {
@@ -146,3 +146,25 @@ document.getElementById('btnDeconnexion').addEventListener('click', async () => 
   await bdd.auth.signOut();
   location.reload();
 });
+
+
+/* ============================================================
+   INSTALLATION SUR L'ÉCRAN D'ACCUEIL (PWA)
+   ============================================================
+   Le service worker met l'habillage du site en cache : l'application
+   démarre instantanément et s'affiche même sans réseau. Les données,
+   elles, viennent toujours de Supabase — hors connexion, l'interface
+   s'ouvre mais reste vide.
+
+   Voir sw.js, et notamment la note sur le numéro de version à
+   incrémenter si une mise à jour semble ne pas passer.
+   ------------------------------------------------------------ */
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {
+      // Sans service worker, le site fonctionne normalement :
+      // on perd seulement l'installation et le démarrage hors ligne.
+    });
+  });
+}

@@ -9,6 +9,12 @@
 <meta name="apple-mobile-web-app-title" content="Suivi">
 <title>Suivi remise en forme</title>
 <link rel="stylesheet" href="styles.css">
+
+<!-- Installation sur l'écran d'accueil (Android / Chrome) -->
+<link rel="manifest" href="manifest.json">
+<!-- iOS ignore le manifest : il lui faut sa propre icône -->
+<link rel="apple-touch-icon" href="icones/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icones/icone-192.png">
 </head>
 <body>
 
@@ -215,8 +221,12 @@
 <div id="statut"></div>
 
 <!-- L'ordre compte : la librairie Supabase, puis compte.js qui crée le client
-     et gère les droits, puis app.js qui s'appuie sur les deux. -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+     et gère les droits, puis app.js qui s'appuie sur les deux.
+
+     La librairie est servie depuis le dépôt plutôt que depuis un CDN :
+     l'application peut ainsi démarrer sans connexion. Pour la mettre à jour :
+     curl -sL "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" -o vendor/supabase.js -->
+<script src="vendor/supabase.js"></script>
 <script src="compte.js"></script>
 <script src="app.js"></script>
 </body>
