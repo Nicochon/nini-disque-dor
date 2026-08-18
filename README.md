@@ -23,7 +23,7 @@ aucune donnée n'est lisible.
 | `sw.js` | Service worker — cache de l'habillage du site |
 | `vendor/supabase.js` | Librairie Supabase, servie localement plutôt qu'en CDN |
 | `icones/` | Icônes de l'application |
-| `document/schema-supabase.sql` | Schéma de la base — tables, contraintes, droits |
+| `sql/schema-supabase.sql` | Schéma de la base — tables, contraintes, droits |
 
 L'ordre des `<script>` en fin de `index.html` est important : la librairie Supabase,
 puis `compte.js` qui crée le client et lit les droits, puis `app.js` qui s'appuie

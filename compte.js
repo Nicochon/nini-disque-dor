@@ -15,7 +15,7 @@
    La clé ci-dessous est la clé "publishable" : elle est conçue pour être
    visible dans le code source d'une page. Elle ne donne accès à rien par
    elle-même — c'est la sécurité au niveau des lignes (RLS) côté base qui
-   exige d'être connecté. Voir schema-supabase.sql.
+   exige d'être connecté. Voir sql/schema-supabase.sql.
    ------------------------------------------------------------ */
 
 const SUPABASE_URL = 'https://qafiwvnokwajkduoajna.supabase.co';
@@ -79,7 +79,7 @@ async function chargerRole() {
     if (error) {
       // 42P01 : la table n'existe pas encore côté Supabase.
       raisonSansAcces = (error.code === '42P01')
-        ? 'Table « acces » absente : exécute schema-supabase.sql dans Supabase.'
+        ? 'Table « acces » absente : exécute sql/schema-supabase.sql dans Supabase.'
         : 'Lecture des droits impossible : ' + error.message;
       return null;
     }

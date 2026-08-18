@@ -1,10 +1,13 @@
-# Documentation de travail : reste en local, contient du contexte médical personnel
-cahier-des-charges-app-suivi.md
-prompt-claude-code.md
+# ============================================================
+#  RÈGLE SIMPLE
+#  Tout ce qui est publié sur GitHub est à la racine, dans sql/,
+#  icones/ ou vendor/. Tout ce qui ne doit jamais sortir d'ici va
+#  dans prive/ — le dossier entier est exclu, sans exception.
+# ============================================================
 
-# Ancienne version (fonctionnait uniquement dans un artefact Claude,
-# et contient une pesée réelle codée en dur)
-suivi-remise-en-forme.html
+# Documents de travail personnels et anciennes versions.
+# Le dossier entier reste local, sans exception.
+/prive/
 
 # Configuration de l'IDE
 .idea/
