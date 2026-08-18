@@ -960,14 +960,20 @@ function poidsALaDate(cle) {
   return anterieures.length ? anterieures[anterieures.length - 1] : null;
 }
 
+/* Douleur d'un jour donné. Un jour sans saisie vaut 0 : le curseur part de
+   zéro et n'est enregistré que lorsqu'il y a quelque chose à signaler, donc
+   l'absence de note veut dire « pas eu mal », pas « on ne sait pas ». */
+function douleurDuJour(cle) {
+  const jour = donnees.jours[cle];
+  if (!jour || jour.douleur === null || jour.douleur === undefined) return 0;
+  return Number(jour.douleur);
+}
+
 // Moyenne de douleur sur une plage — sert aussi à comparer deux périodes.
 function douleurMoyenneSur(cleDebut, cleFin) {
-  const valeurs = clesEntre(cleDebut, cleFin)
-    .map(cle => donnees.jours[cle])
-    .filter(jour => jour && jour.douleur !== null && jour.douleur !== undefined)
-    .map(jour => Number(jour.douleur));
-  if (!valeurs.length) return null;
-  return valeurs.reduce((a, b) => a + b, 0) / valeurs.length;
+  const cles = clesEntre(cleDebut, cleFin);
+  if (!cles.length) return null;
+  return cles.reduce((total, cle) => total + douleurDuJour(cle), 0) / cles.length;
 }
 
 /* Calcule toutes les statistiques d'une période.
@@ -987,30 +993,28 @@ function calculerBilan(cleDebut, cleFin) {
   });
 
   // --- Douleur ---
-  const releves = cles
-    .map(cle => ({ cle: cle, jour: donnees.jours[cle] }))
-    .filter(e => e.jour && e.jour.douleur !== null && e.jour.douleur !== undefined)
-    .map(e => ({ cle: e.cle, valeur: Number(e.jour.douleur) }));
+  // Tous les jours de la période comptent, ceux sans saisie valant 0.
+  const releves = cles.map(cle => ({ cle: cle, valeur: douleurDuJour(cle) }));
+  const moyenne = releves.reduce((total, e) => total + e.valeur, 0) / releves.length;
+  const plusHaut = releves.reduce((a, b) => (b.valeur > a.valeur ? b : a));
+  const joursNotes = releves.filter(e => e.valeur > 0).length;
 
-  let douleur = null;
-  if (releves.length) {
-    const moyenne = releves.reduce((total, e) => total + e.valeur, 0) / releves.length;
-    const plusBas = releves.reduce((a, b) => (b.valeur < a.valeur ? b : a));
-    const plusHaut = releves.reduce((a, b) => (b.valeur > a.valeur ? b : a));
-    douleur = {
-      moyenne: moyenne,
-      min: plusBas.valeur, dateMin: plusBas.cle,
-      max: plusHaut.valeur, dateMax: plusHaut.cle,
-      nbReleves: releves.length
-    };
-  }
+  const douleur = {
+    moyenne: moyenne,
+    max: plusHaut.valeur,
+    dateMax: plusHaut.cle,
+    joursNotes: joursNotes   // jours où une douleur a réellement été ressentie
+  };
 
   // Comparaison avec la période précédente — omise si elle n'a aucun relevé.
   const veille = versDate(cleDebut);
   veille.setDate(veille.getDate() - 1);
   const precedente = bornesPeriode(veille, typePeriodeBilan);
-  const moyennePrecedente = douleurMoyenneSur(precedente.debut, precedente.fin);
-  const ecartDouleur = (douleur && moyennePrecedente !== null)
+  // Comparaison omise si la période précédente est antérieure au suivi.
+  const moyennePrecedente = (precedente.fin < DATE_DEBUT)
+    ? null
+    : douleurMoyenneSur(precedente.debut, precedente.fin);
+  const ecartDouleur = (moyennePrecedente !== null)
     ? douleur.moyenne - moyennePrecedente
     : null;
 
@@ -1039,6 +1043,17 @@ function calculerBilan(cleDebut, cleFin) {
   const totalEau = joursConnus.reduce((total, jour) => total + (Number(jour.eau) || 0), 0);
   const joursAvecEau = joursConnus.filter(jour => Number(jour.eau) > 0).length;
 
+  // --- Notes écrites sur la période ---
+  const notes = cles
+    .map(cle => ({ cle: cle, jour: donnees.jours[cle] }))
+    .filter(e => e.jour && e.jour.douleur_note && e.jour.douleur_note.trim())
+    .map(e => ({
+      date: e.cle,
+      douleur: douleurDuJour(e.cle),
+      texte: e.jour.douleur_note.trim()
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
   return {
     debut: cleDebut,
     fin: cleFin,
@@ -1047,6 +1062,10 @@ function calculerBilan(cleDebut, cleFin) {
     periodeEnCours: cleFin > cleAujourdhui,
     aDesDonnees: joursConnus.length > 0 || arrivee !== null,
     seances: seances,
+    // Les quatre séances physiques. La séance chez le kiné en fait partie :
+    // c'est un vrai travail, et une cause fréquente de douleur.
+    totalSportif: seances.kine_exo + seances.sport + seances.velo + seances.kine_seance,
+    notes: notes,
     regime: joursConnus.filter(jour => jour.regime).length,
     douleur: douleur,
     ecartDouleur: ecartDouleur,
@@ -1071,7 +1090,10 @@ function libellePeriode(cleDebut, cleFin, type) {
 
 // Une variation, avec la couleur qui dit si c'est une bonne nouvelle.
 function tendance(ecart, baisseEstBonne, suffixe) {
-  if (ecart === null || Math.abs(ecart) < 0.05) {
+  // Pas de période précédente à comparer : on n'affiche rien plutôt que
+  // « stable », qui laisserait croire à une comparaison réelle.
+  if (ecart === null) return '';
+  if (Math.abs(ecart) < 0.05) {
     return '<div class="bilan-tendance stable">stable</div>';
   }
   const fleche = ecart < 0 ? '↓' : '↑';
@@ -1111,26 +1133,17 @@ function afficherBilan() {
     </div>`).join('');
 
   // --- Douleur ---
-  let tuileDouleur;
-  if (bilan.douleur) {
-    tuileDouleur = `
-      <div class="bilan-tuile">
-        <div class="bilan-chiffre">${bilan.douleur.moyenne.toFixed(1).replace('.', ',')}<span class="unite"> /10</span></div>
-        <div class="bilan-libelle">Douleur moyenne</div>
-        ${tendance(bilan.ecartDouleur, true, 'pt')}
-        <div class="bilan-detail">
-          min ${bilan.douleur.min} le ${dateCourte(bilan.douleur.dateMin)} ·
-          max ${bilan.douleur.max} le ${dateCourte(bilan.douleur.dateMax)}
-        </div>
-      </div>`;
-  } else {
-    tuileDouleur = `
-      <div class="bilan-tuile">
-        <div class="bilan-chiffre">–</div>
-        <div class="bilan-libelle">Douleur moyenne</div>
-        <div class="bilan-detail">aucun relevé</div>
-      </div>`;
-  }
+  const detailDouleur = bilan.douleur.joursNotes === 0
+    ? 'aucune douleur signalée'
+    : `pic à ${bilan.douleur.max} le ${dateCourte(bilan.douleur.dateMax)} · ${bilan.douleur.joursNotes} jour${bilan.douleur.joursNotes > 1 ? 's' : ''} avec douleur`;
+
+  const tuileDouleur = `
+    <div class="bilan-tuile">
+      <div class="bilan-chiffre">${bilan.douleur.moyenne.toFixed(1).replace('.', ',')}<span class="unite"> /10</span></div>
+      <div class="bilan-libelle">Douleur moyenne</div>
+      ${tendance(bilan.ecartDouleur, true, 'pt')}
+      <div class="bilan-detail">${detailDouleur}</div>
+    </div>`;
 
   // --- Poids ---
   let tuilePoids;
@@ -1183,8 +1196,25 @@ function afficherBilan() {
 
       <div class="bilan-tuile pleine">
         <div class="bilan-titre-tuile">Séances</div>
+        <div class="bilan-total">
+          <span class="bilan-chiffre">${bilan.totalSportif}</span>
+          <span class="bilan-total-texte">séance${bilan.totalSportif > 1 ? 's' : ''} cette ${typePeriodeBilan === 'mois' ? 'période' : 'semaine'}</span>
+        </div>
         ${lignesSeances}
       </div>
+
+      ${bilan.notes.length ? `
+      <div class="bilan-tuile pleine">
+        <div class="bilan-titre-tuile">Notes de la période</div>
+        ${bilan.notes.map(note => `
+          <div class="bilan-note">
+            <span class="pastille" style="background:${couleurDouleur(note.douleur)}"></span>
+            <div>
+              <div class="bilan-note-entete">${versDate(note.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} · douleur ${note.douleur}</div>
+              <div class="bilan-note-texte">${note.texte.replace(/</g, '&lt;')}</div>
+            </div>
+          </div>`).join('')}
+      </div>` : ''}
     </div>
     ${bilan.periodeEnCours
       ? `<div class="bilan-detail" style="text-align:center; margin-top:10px;">Période en cours — calculé sur ${bilan.nbJours} jour${bilan.nbJours > 1 ? 's' : ''} écoulé${bilan.nbJours > 1 ? 's' : ''}.</div>`

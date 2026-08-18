@@ -261,3 +261,42 @@ body.mode-lecture input[type="text"] {
 /* Flèches inactives : au début du suivi, il n'y a pas de période
    précédente, et la période suivante est dans le futur. */
 .cal-nav button:disabled { opacity: 0.3; cursor: default; }
+
+/* Total des séances, mis en avant en haut de la carte */
+.bilan-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #f0ede4;
+}
+.bilan-total-texte { font-family: var(--sans); font-size: 0.78rem; color: #6b6459; }
+
+/* Notes écrites sur la période */
+.bilan-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 9px 0;
+  border-bottom: 1px solid #f0ede4;
+}
+.bilan-note:last-child { border-bottom: none; }
+.bilan-note .pastille {
+  width: 9px; height: 9px; border-radius: 50%;
+  flex-shrink: 0; margin-top: 5px;
+}
+.bilan-note-entete {
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  color: var(--sage-deep);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.bilan-note-texte {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--ink);
+  line-height: 1.4;
+  margin-top: 2px;
+}
