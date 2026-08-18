@@ -182,6 +182,7 @@ function toutAfficher() {
   afficherListePoids();
   afficherListeRameur();
   afficherListeTapis();
+  afficherBilan();
 }
 
 
@@ -900,7 +901,323 @@ document.getElementById('btnRestaurer').addEventListener('click', async () => {
 
 
 /* ============================================================
-   14. DÉMARRAGE DE L'APPLICATION
+   14. BILAN — statistiques par semaine ou par mois
+   ============================================================
+   Tout est recalculé à partir de donnees.jours et donnees.poids, déjà
+   chargés en mémoire : aucune requête supplémentaire.
+
+   Deux principes de calcul, qui expliquent la plupart des choix ici :
+
+   · On ne juge jamais une période sur des jours à venir. La semaine en
+     cours est évaluée sur les jours écoulés, sinon toutes les moyennes
+     s'effondreraient artificiellement un lundi matin.
+
+   · La couleur d'une tendance dit « mieux » ou « moins bien », jamais le
+     sens de la variation : une douleur qui baisse est une bonne nouvelle,
+     un nombre de séances qui baisse ne l'est pas.
+   ------------------------------------------------------------ */
+
+let typePeriodeBilan = 'semaine';   // 'semaine' ou 'mois'
+let dateReferenceBilan = new Date(); // un jour quelconque de la période affichée
+
+/* Bornes de la période contenant `dateObjet`, en clés ISO.
+   La semaine va du lundi au dimanche, comme le calendrier. */
+function bornesPeriode(dateObjet, type) {
+  if (type === 'mois') {
+    const annee = dateObjet.getFullYear(), mois = dateObjet.getMonth();
+    return {
+      debut: cleDate(new Date(annee, mois, 1)),
+      fin:   cleDate(new Date(annee, mois + 1, 0))
+    };
+  }
+  // getDay() renvoie 0 le dimanche : on recule jusqu'au lundi.
+  let decalage = dateObjet.getDay() - 1;
+  if (decalage < 0) decalage = 6;
+  const lundi = new Date(dateObjet);
+  lundi.setDate(lundi.getDate() - decalage);
+  const dimanche = new Date(lundi);
+  dimanche.setDate(dimanche.getDate() + 6);
+  return { debut: cleDate(lundi), fin: cleDate(dimanche) };
+}
+
+// Toutes les clés de date entre deux bornes incluses.
+function clesEntre(cleDebut, cleFin) {
+  const cles = [];
+  const curseur = versDate(cleDebut);
+  const fin = versDate(cleFin);
+  while (curseur <= fin) {
+    cles.push(cleDate(curseur));
+    curseur.setDate(curseur.getDate() + 1);
+  }
+  return cles;
+}
+
+// Dernière pesée connue à cette date ou avant.
+function poidsALaDate(cle) {
+  const anterieures = donnees.poids
+    .filter(entree => entree.date <= cle)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return anterieures.length ? anterieures[anterieures.length - 1] : null;
+}
+
+// Moyenne de douleur sur une plage — sert aussi à comparer deux périodes.
+function douleurMoyenneSur(cleDebut, cleFin) {
+  const valeurs = clesEntre(cleDebut, cleFin)
+    .map(cle => donnees.jours[cle])
+    .filter(jour => jour && jour.douleur !== null && jour.douleur !== undefined)
+    .map(jour => Number(jour.douleur));
+  if (!valeurs.length) return null;
+  return valeurs.reduce((a, b) => a + b, 0) / valeurs.length;
+}
+
+/* Calcule toutes les statistiques d'une période.
+   Renvoie null si la période est entièrement dans le futur. */
+function calculerBilan(cleDebut, cleFin) {
+  const cleAujourdhui = aujourdhui();
+  const finReelle = cleFin > cleAujourdhui ? cleAujourdhui : cleFin;
+  if (finReelle < cleDebut) return null;
+
+  const cles = clesEntre(cleDebut, finReelle);
+  const joursConnus = cles.map(cle => donnees.jours[cle]).filter(Boolean);
+
+  // --- Séances par activité ---
+  const seances = {};
+  ACTIVITES.forEach(activite => {
+    seances[activite] = joursConnus.filter(jour => jour[activite]).length;
+  });
+
+  // --- Douleur ---
+  const releves = cles
+    .map(cle => ({ cle: cle, jour: donnees.jours[cle] }))
+    .filter(e => e.jour && e.jour.douleur !== null && e.jour.douleur !== undefined)
+    .map(e => ({ cle: e.cle, valeur: Number(e.jour.douleur) }));
+
+  let douleur = null;
+  if (releves.length) {
+    const moyenne = releves.reduce((total, e) => total + e.valeur, 0) / releves.length;
+    const plusBas = releves.reduce((a, b) => (b.valeur < a.valeur ? b : a));
+    const plusHaut = releves.reduce((a, b) => (b.valeur > a.valeur ? b : a));
+    douleur = {
+      moyenne: moyenne,
+      min: plusBas.valeur, dateMin: plusBas.cle,
+      max: plusHaut.valeur, dateMax: plusHaut.cle,
+      nbReleves: releves.length
+    };
+  }
+
+  // Comparaison avec la période précédente — omise si elle n'a aucun relevé.
+  const veille = versDate(cleDebut);
+  veille.setDate(veille.getDate() - 1);
+  const precedente = bornesPeriode(veille, typePeriodeBilan);
+  const moyennePrecedente = douleurMoyenneSur(precedente.debut, precedente.fin);
+  const ecartDouleur = (douleur && moyennePrecedente !== null)
+    ? douleur.moyenne - moyennePrecedente
+    : null;
+
+  // --- Poids ---
+  let depart = poidsALaDate(cleDebut);
+  if (!depart) {
+    // Aucune pesée avant la période : on prend la première qu'elle contient.
+    const dedans = donnees.poids
+      .filter(e => e.date >= cleDebut && e.date <= finReelle)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    depart = dedans.length ? dedans[0] : null;
+  }
+  const arrivee = poidsALaDate(finReelle);
+  // Même pesée aux deux bouts : il n'y a pas eu de nouvelle mesure.
+  const memeMesure = depart && arrivee && depart.date === arrivee.date;
+  const poids = arrivee ? {
+    depart: depart ? Number(depart.weight) : null,
+    arrivee: Number(arrivee.weight),
+    ecart: (depart && !memeMesure) ? Number(arrivee.weight) - Number(depart.weight) : null,
+    nouvelleMesure: !memeMesure
+  } : null;
+
+  // --- Eau ---
+  // Moyenne rapportée aux jours écoulés, pas aux seuls jours renseignés :
+  // un jour sans saisie est un jour où l'objectif n'a pas été suivi.
+  const totalEau = joursConnus.reduce((total, jour) => total + (Number(jour.eau) || 0), 0);
+  const joursAvecEau = joursConnus.filter(jour => Number(jour.eau) > 0).length;
+
+  return {
+    debut: cleDebut,
+    fin: cleFin,
+    finReelle: finReelle,
+    nbJours: cles.length,
+    periodeEnCours: cleFin > cleAujourdhui,
+    aDesDonnees: joursConnus.length > 0 || arrivee !== null,
+    seances: seances,
+    regime: joursConnus.filter(jour => jour.regime).length,
+    douleur: douleur,
+    ecartDouleur: ecartDouleur,
+    poids: poids,
+    eauMoyenne: cles.length ? totalEau / cles.length : 0,
+    joursAvecEau: joursAvecEau
+  };
+}
+
+// "Semaine du 11 au 17 août 2026" ou "Août 2026"
+function libellePeriode(cleDebut, cleFin, type) {
+  if (type === 'mois') {
+    const texte = versDate(cleDebut).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    return texte.charAt(0).toUpperCase() + texte.slice(1);
+  }
+  const d = versDate(cleDebut), f = versDate(cleFin);
+  const memeMois = d.getMonth() === f.getMonth();
+  const debutTexte = d.toLocaleDateString('fr-FR', memeMois ? { day: 'numeric' } : { day: 'numeric', month: 'short' });
+  const finTexte = f.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  return `Semaine du ${debutTexte} au ${finTexte}`;
+}
+
+// Une variation, avec la couleur qui dit si c'est une bonne nouvelle.
+function tendance(ecart, baisseEstBonne, suffixe) {
+  if (ecart === null || Math.abs(ecart) < 0.05) {
+    return '<div class="bilan-tendance stable">stable</div>';
+  }
+  const fleche = ecart < 0 ? '↓' : '↑';
+  const bonne = ecart < 0 ? baisseEstBonne : !baisseEstBonne;
+  const valeur = Math.abs(ecart).toFixed(1).replace('.', ',');
+  return `<div class="bilan-tendance ${bonne ? 'mieux' : 'moins'}">${fleche} ${valeur} ${suffixe}</div>`;
+}
+
+function afficherBilan() {
+  const bornes = bornesPeriode(dateReferenceBilan, typePeriodeBilan);
+  document.getElementById('libelleBilan').textContent =
+    libellePeriode(bornes.debut, bornes.fin, typePeriodeBilan);
+
+  // On ne navigue ni avant le début du suivi, ni au-delà de la période en cours.
+  const cleAujourdhui = aujourdhui();
+  document.getElementById('btnBilanPrecedent').disabled = bornes.debut <= DATE_DEBUT;
+  document.getElementById('btnBilanSuivant').disabled = bornes.fin >= cleAujourdhui;
+
+  const zone = document.getElementById('contenuBilan');
+  const bilan = calculerBilan(bornes.debut, bornes.fin);
+
+  if (!bilan || !bilan.aDesDonnees) {
+    zone.innerHTML = '<div class="empty-msg">Pas encore de données pour cette période.</div>';
+    return;
+  }
+
+  const nomsActivites = {
+    kine_exo: '🏠 Exo kiné maison',
+    sport: '🏋️ Sport salle',
+    kine_seance: '🧑‍⚕️ Séance kiné',
+    velo: '🚴 Vélo'
+  };
+  const lignesSeances = Object.keys(nomsActivites).map(cle => `
+    <div class="bilan-ligne">
+      <span>${nomsActivites[cle]}</span>
+      <span class="compte">${bilan.seances[cle]}</span>
+    </div>`).join('');
+
+  // --- Douleur ---
+  let tuileDouleur;
+  if (bilan.douleur) {
+    tuileDouleur = `
+      <div class="bilan-tuile">
+        <div class="bilan-chiffre">${bilan.douleur.moyenne.toFixed(1).replace('.', ',')}<span class="unite"> /10</span></div>
+        <div class="bilan-libelle">Douleur moyenne</div>
+        ${tendance(bilan.ecartDouleur, true, 'pt')}
+        <div class="bilan-detail">
+          min ${bilan.douleur.min} le ${dateCourte(bilan.douleur.dateMin)} ·
+          max ${bilan.douleur.max} le ${dateCourte(bilan.douleur.dateMax)}
+        </div>
+      </div>`;
+  } else {
+    tuileDouleur = `
+      <div class="bilan-tuile">
+        <div class="bilan-chiffre">–</div>
+        <div class="bilan-libelle">Douleur moyenne</div>
+        <div class="bilan-detail">aucun relevé</div>
+      </div>`;
+  }
+
+  // --- Poids ---
+  let tuilePoids;
+  if (bilan.poids && bilan.poids.ecart !== null) {
+    const signe = bilan.poids.ecart > 0 ? '+' : '−';
+    const valeur = Math.abs(bilan.poids.ecart).toFixed(1).replace('.', ',');
+    const bonne = bilan.poids.ecart < 0;
+    tuilePoids = `
+      <div class="bilan-tuile">
+        <div class="bilan-chiffre" style="color:${bonne ? 'var(--sage-deep)' : 'var(--ink)'}">${signe}${valeur}<span class="unite"> kg</span></div>
+        <div class="bilan-libelle">Variation de poids</div>
+        <div class="bilan-detail">
+          ${bilan.poids.depart.toFixed(1).replace('.', ',')} → ${bilan.poids.arrivee.toFixed(1).replace('.', ',')} kg
+        </div>
+      </div>`;
+  } else if (bilan.poids) {
+    tuilePoids = `
+      <div class="bilan-tuile">
+        <div class="bilan-chiffre">${bilan.poids.arrivee.toFixed(1).replace('.', ',')}<span class="unite"> kg</span></div>
+        <div class="bilan-libelle">Dernier poids connu</div>
+        <div class="bilan-detail">pas de nouvelle pesée sur la période</div>
+      </div>`;
+  } else {
+    tuilePoids = `
+      <div class="bilan-tuile">
+        <div class="bilan-chiffre">–</div>
+        <div class="bilan-libelle">Poids</div>
+        <div class="bilan-detail">aucune pesée enregistrée</div>
+      </div>`;
+  }
+
+  const pourcentEau = Math.round((bilan.eauMoyenne / OBJECTIF_EAU) * 100);
+
+  zone.innerHTML = `
+    <div class="bilan-grille">
+      ${tuileDouleur}
+      ${tuilePoids}
+
+      <div class="bilan-tuile">
+        <div class="bilan-chiffre">${bilan.regime}<span class="unite"> / ${bilan.nbJours}</span></div>
+        <div class="bilan-libelle">Jours sans écart</div>
+        <div class="bilan-detail">${Math.round((bilan.regime / bilan.nbJours) * 100)} % de la période</div>
+      </div>
+
+      <div class="bilan-tuile">
+        <div class="bilan-chiffre">${Math.round(bilan.eauMoyenne)}<span class="unite"> cl/j</span></div>
+        <div class="bilan-libelle">Eau bue en moyenne</div>
+        <div class="bilan-detail">${pourcentEau} % de l'objectif · noté ${bilan.joursAvecEau} j sur ${bilan.nbJours}</div>
+      </div>
+
+      <div class="bilan-tuile pleine">
+        <div class="bilan-titre-tuile">Séances</div>
+        ${lignesSeances}
+      </div>
+    </div>
+    ${bilan.periodeEnCours
+      ? `<div class="bilan-detail" style="text-align:center; margin-top:10px;">Période en cours — calculé sur ${bilan.nbJours} jour${bilan.nbJours > 1 ? 's' : ''} écoulé${bilan.nbJours > 1 ? 's' : ''}.</div>`
+      : ''}
+  `;
+}
+
+// Navigue d'une période vers l'arrière (-1) ou vers l'avant (+1).
+function changerPeriodeBilan(direction) {
+  if (typePeriodeBilan === 'mois') {
+    dateReferenceBilan.setMonth(dateReferenceBilan.getMonth() + direction);
+  } else {
+    dateReferenceBilan.setDate(dateReferenceBilan.getDate() + direction * 7);
+  }
+  afficherBilan();
+}
+
+document.getElementById('btnBilanPrecedent').addEventListener('click', () => changerPeriodeBilan(-1));
+document.getElementById('btnBilanSuivant').addEventListener('click', () => changerPeriodeBilan(1));
+
+document.querySelectorAll('.bilan-onglet').forEach(onglet => {
+  onglet.addEventListener('click', () => {
+    typePeriodeBilan = onglet.dataset.periode;
+    dateReferenceBilan = new Date();   // on revient à la période en cours
+    document.querySelectorAll('.bilan-onglet').forEach(o => o.classList.remove('actif'));
+    onglet.classList.add('actif');
+    afficherBilan();
+  });
+});
+
+
+/* ============================================================
+   15. DÉMARRAGE DE L'APPLICATION
    ============================================================
    Appelé une fois la session ouverte — soit par compte.js après une
    connexion réussie, soit par le bloc d'initialisation en fin de fichier
@@ -931,7 +1248,7 @@ async function demarrerAppli() {
 }
 
 /* ============================================================
-   15. DÉMARRAGE
+   16. OUVERTURE DE LA SESSION
    ============================================================
    Supabase garde la session dans le navigateur : tant qu'elle est valide,
    on entre directement dans l'application sans repasser par la connexion.
