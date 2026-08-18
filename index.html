@@ -38,6 +38,11 @@
     <p class="sub" id="compteurJours" style="margin-top:6px; font-weight:600; color:var(--sage-deep);"></p>
   </header>
 
+  <!-- Affiché uniquement aux comptes en lecture seule -->
+  <div id="bandeauConsultation">
+    👁️ Mode consultation — les données sont en lecture seule.
+  </div>
+
   <!-- ---------- Aujourd'hui (accès rapide, en haut) ---------- -->
   <div class="card">
     <h2>Aujourd'hui</h2>
@@ -57,7 +62,7 @@
       <input type="range" id="curseurDouleurJour" min="0" max="10" step="1" style="width:100%; margin-top:8px;">
       <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#9a9284; font-family:var(--sans);"><span>0 · aucune</span><span>10 · insupportable</span></div>
       <input type="text" id="noteDouleurJour" placeholder="Contexte (ex : décharge sous la douche, tire après rameur...)" style="margin-top:8px; font-size:0.85rem;">
-      <button class="add" id="btnEnregistrerDouleurJour" style="width:100%; margin-top:8px;">Enregistrer la douleur du jour</button>
+      <button class="add ecriture" id="btnEnregistrerDouleurJour" style="width:100%; margin-top:8px;">Enregistrer la douleur du jour</button>
     </div>
 
     <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
@@ -100,7 +105,7 @@
         <input type="range" id="curseurDouleurPanneau" min="0" max="10" step="1" style="width:100%;">
         <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#9a9284;"><span>0 · aucune</span><span>10 · insupportable</span></div>
         <input type="text" id="noteDouleurPanneau" placeholder="Contexte..." style="font-size:0.85rem;">
-        <button class="add" id="btnEnregistrerPanneau" style="width:100%;">Enregistrer ce jour</button>
+        <button class="add ecriture" id="btnEnregistrerPanneau" style="width:100%;">Enregistrer ce jour</button>
       </div>
     </div>
   </div>
@@ -114,7 +119,7 @@
   <!-- ---------- Poids ---------- -->
   <div class="card">
     <h2>Poids</h2>
-    <div class="row2">
+    <div class="row2 ecriture">
       <div>
         <label for="champDatePoids">Date</label>
         <input type="date" id="champDatePoids">
@@ -132,27 +137,27 @@
   <!-- ---------- Rameur ---------- -->
   <div class="card">
     <h2>Rameur — performances</h2>
-    <div class="row2">
+    <div class="row2 ecriture">
       <div><label for="champDateRameur">Date</label><input type="date" id="champDateRameur"></div>
       <div><label for="champTempsRameur">Temps /1000m</label><input type="text" id="champTempsRameur" style="width:110px;" placeholder="4:06" inputmode="numeric"></div>
     </div>
-    <button class="add" id="btnAjouterRameur" style="margin-top:10px; width:100%;">Ajouter</button>
+    <button class="add ecriture" id="btnAjouterRameur" style="margin-top:10px; width:100%;">Ajouter</button>
     <div id="listeRameur" style="margin-top:12px;"><div class="empty-msg">Aucune donnée pour l'instant.</div></div>
   </div>
 
   <!-- ---------- Tapis ---------- -->
   <div class="card">
     <h2>Tapis — performances</h2>
-    <div class="row2">
+    <div class="row2 ecriture">
       <div><label for="champDateTapis">Date</label><input type="date" id="champDateTapis"></div>
       <div><label for="champDureeTapis">Min</label><input type="number" id="champDureeTapis" style="width:70px;" inputmode="numeric"></div>
       <div><label for="champVitesseTapis">Km/h</label><input type="number" step="0.1" id="champVitesseTapis" style="width:80px;" inputmode="decimal"></div>
     </div>
-    <div style="margin-top:8px; max-width:140px;">
+    <div class="ecriture" style="margin-top:8px; max-width:140px;">
       <label for="champInclinaisonTapis">Inclinaison %</label>
       <input type="number" step="0.1" id="champInclinaisonTapis" inputmode="decimal">
     </div>
-    <button class="add" id="btnAjouterTapis" style="margin-top:10px; width:100%;">Ajouter</button>
+    <button class="add ecriture" id="btnAjouterTapis" style="margin-top:10px; width:100%;">Ajouter</button>
     <div id="listeTapis" style="margin-top:12px;"><div class="empty-msg">Aucune donnée pour l'instant.</div></div>
   </div>
 
@@ -181,7 +186,7 @@
   </div>
 
   <!-- ---------- Sauvegarde ---------- -->
-  <div class="card">
+  <div class="card ecriture">
     <h2>Sauvegarde</h2>
     <div style="font-family:var(--sans); font-size:0.8rem; color:#6b6459; margin-bottom:10px; line-height:1.5;">
       Tes données vivent dans Supabase. Cette section te permet d'en garder une copie hors ligne :
@@ -209,7 +214,10 @@
 
 <div id="statut"></div>
 
+<!-- L'ordre compte : la librairie Supabase, puis compte.js qui crée le client
+     et gère les droits, puis app.js qui s'appuie sur les deux. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="compte.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

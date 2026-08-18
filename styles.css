@@ -120,3 +120,42 @@ textarea { width: 100%; padding: 10px; border: 1px solid var(--line); border-rad
 #statut.chargement { background: var(--sage-deep); }
 #statut.ok { background: var(--sage); }
 #statut.erreur { background: var(--clay); }
+
+/* ============================================================
+   MODE CONSULTATION (comptes en lecture seule)
+   Activé par la classe "mode-lecture" posée sur <body> par app.js.
+   Ce masquage est du confort : la vraie protection est en base,
+   via les policies RLS. Un lecteur qui contournerait l'interface
+   se verrait refuser l'écriture par Supabase.
+   ============================================================ */
+
+#bandeauConsultation {
+  display: none;
+  background: #eef3ef;
+  border: 1px solid var(--sage);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--sage-deep);
+  text-align: center;
+}
+body.mode-lecture #bandeauConsultation { display: block; }
+
+/* Tout ce qui sert à modifier disparaît */
+body.mode-lecture .ecriture { display: none !important; }
+
+/* Les commandes qui affichent aussi une information restent visibles,
+   mais deviennent inertes : le lecteur voit les valeurs sans y toucher. */
+body.mode-lecture .today-btn,
+body.mode-lecture .switch,
+body.mode-lecture input[type="range"] {
+  pointer-events: none;
+}
+body.mode-lecture input[type="range"] { opacity: 0.75; }
+body.mode-lecture input[type="text"] {
+  background: #f4f2ec;
+  color: #6b6459;
+  pointer-events: none;
+}

@@ -1,22 +1,16 @@
 /* ============================================================
-   1. CONNEXION À SUPABASE
+   SUIVI REMISE EN FORME — logique de l'application
    ============================================================
-   La clé ci-dessous est la clé "publishable" : elle est conçue pour être
-   visible dans le code source d'une page. Elle ne donne accès à rien par
-   elle-même — c'est la sécurité au niveau des lignes (RLS) côté base qui
-   exige d'être connecté. Voir schema-supabase.sql.
+   La connexion à Supabase et la gestion des droits sont dans compte.js,
+   chargé avant ce fichier. On y utilise notamment :
+     · bdd          — le client Supabase
+     · estLecteur   — vrai si le compte est en consultation seule
+     · verrouille() — barrière posée devant chaque modification
    ------------------------------------------------------------ */
-
-const SUPABASE_URL = 'https://qafiwvnokwajkduoajna.supabase.co';
-const SUPABASE_CLE  = 'sb_publishable_waMjF2DZrWBLRen4QqZaLA_HVSSHsOS';
-
-// On nomme le client "bdd" (et pas "supabase") pour ne pas le confondre
-// avec la librairie elle-même, qui occupe déjà window.supabase.
-const bdd = window.supabase.createClient(SUPABASE_URL, SUPABASE_CLE);
 
 
 /* ============================================================
-   2. ÉTAT DE L'APPLICATION
+   1. ÉTAT DE L'APPLICATION
    ============================================================
    Toutes les données sont chargées une fois au démarrage, gardées en
    mémoire pour un affichage instantané, et réécrites dans Supabase à
@@ -41,7 +35,7 @@ let jourSelectionne = null;
 
 
 /* ============================================================
-   3. OUTILS DE DATE
+   2. OUTILS DE DATE
    ============================================================
    Important : on n'utilise jamais toISOString(), qui renvoie la date en
    heure UTC — entre minuit et 2 h du matin en France, elle donnerait la
@@ -100,7 +94,7 @@ function normaliserDate(valeur) {
 
 
 /* ============================================================
-   4. BARRE DE STATUT (retour visuel de chaque enregistrement)
+   3. BARRE DE STATUT (retour visuel de chaque enregistrement)
    ============================================================ */
 
 let minuteurStatut = null;
@@ -125,6 +119,7 @@ function masquerStatut() {
    "Enregistrement…", puis "Enregistré ✓" ou le message d'erreur.
    Renvoie true si tout s'est bien passé. */
 async function executer(action, messageSucces) {
+  if (verrouille()) return false;
   afficherStatut('Enregistrement…', 'chargement');
   try {
     const { error } = await action();
@@ -144,7 +139,7 @@ async function executer(action, messageSucces) {
 
 
 /* ============================================================
-   5. CHARGEMENT DES DONNÉES
+   4. CHARGEMENT DES DONNÉES
    ============================================================ */
 
 async function chargerDonnees() {
@@ -191,7 +186,7 @@ function toutAfficher() {
 
 
 /* ============================================================
-   6. ENREGISTREMENT D'UN JOUR
+   5. ENREGISTREMENT D'UN JOUR
    ============================================================
    La table days a "date" pour clé primaire : on envoie la ligne complète
    et Supabase remplace celle qui existe déjà (upsert).
@@ -230,7 +225,7 @@ async function sauvegarderJour(cle, messageSucces) {
 
 
 /* ============================================================
-   7. COMPTEUR DE JOURS
+   6. COMPTEUR DE JOURS
    ============================================================ */
 
 function afficherCompteurJours() {
@@ -248,7 +243,7 @@ function afficherCompteurJours() {
 
 
 /* ============================================================
-   8. CALENDRIER
+   7. CALENDRIER
    ============================================================ */
 
 function couleurDouleur(niveau) {
@@ -381,7 +376,7 @@ document.getElementById('btnMoisSuivant').addEventListener('click', () => {
 
 
 /* ============================================================
-   9. SECTION "AUJOURD'HUI"
+   8. SECTION "AUJOURD'HUI"
    ============================================================ */
 
 function afficherAujourdhui() {
@@ -447,7 +442,7 @@ curseurEau.addEventListener('change', async () => {
 
 
 /* ============================================================
-   10. BADGES
+   9. BADGES
    ============================================================ */
 
 // "4:06" -> 246 secondes
@@ -525,7 +520,7 @@ function afficherBadges() {
 
 
 /* ============================================================
-   11. POIDS
+   10. POIDS
    ============================================================ */
 
 document.getElementById('btnAjouterPoids').addEventListener('click', async () => {
@@ -615,16 +610,17 @@ function afficherListePoids() {
     <div class="perf-entry">
       <span class="perf-date">${dateCourte(entree.date)}</span>
       <span class="perf-val">${entree.weight} kg</span>
-      <button class="btn-suppr" data-table="weights" data-date="${entree.date}">✕</button>
+      <button class="btn-suppr ecriture" data-table="weights" data-date="${entree.date}">✕</button>
     </div>`).join('');
 }
 
 
 /* ============================================================
-   12. RAMEUR ET TAPIS
+   11. RAMEUR ET TAPIS
    ============================================================ */
 
 document.getElementById('btnAjouterRameur').addEventListener('click', async () => {
+  if (verrouille()) return;
   const date = document.getElementById('champDateRameur').value;
   const temps = document.getElementById('champTempsRameur').value.trim();
 
@@ -646,6 +642,7 @@ document.getElementById('btnAjouterRameur').addEventListener('click', async () =
 });
 
 document.getElementById('btnAjouterTapis').addEventListener('click', async () => {
+  if (verrouille()) return;
   const date = document.getElementById('champDateTapis').value;
   const duree = document.getElementById('champDureeTapis').value;
   const vitesse = document.getElementById('champVitesseTapis').value;
@@ -683,7 +680,7 @@ function afficherListeRameur() {
     <div class="perf-entry">
       <span class="perf-date">${dateCourte(entree.date)}</span>
       <span class="perf-val">${entree.temps} /1000 m</span>
-      <button class="btn-suppr" data-table="rameur" data-id="${entree.id}">✕</button>
+      <button class="btn-suppr ecriture" data-table="rameur" data-id="${entree.id}">✕</button>
     </div>`).join('');
 }
 
@@ -702,14 +699,14 @@ function afficherListeTapis() {
       <div class="perf-entry">
         <span class="perf-date">${dateCourte(entree.date)}</span>
         <span class="perf-val">${morceaux.join(' · ')}</span>
-        <button class="btn-suppr" data-table="tapis" data-id="${entree.id}">✕</button>
+        <button class="btn-suppr ecriture" data-table="tapis" data-id="${entree.id}">✕</button>
       </div>`;
   }).join('');
 }
 
 
 /* ============================================================
-   13. SUPPRESSION D'UNE LIGNE
+   12. SUPPRESSION D'UNE LIGNE
    ============================================================
    Confirmation en deux temps : le premier appui transforme le bouton en
    "Supprimer ?", le second supprime vraiment. Ça évite la fenêtre de
@@ -768,7 +765,7 @@ document.addEventListener('click', async evenement => {
 
 
 /* ============================================================
-   14. SAUVEGARDE : EXPORT ET IMPORT JSON
+   13. SAUVEGARDE : EXPORT ET IMPORT JSON
    ============================================================
    Les dates sont écrites en jj/mm/aaaa dans l'export (plus lisible) et
    reconverties en aaaa-mm-jj à l'import.
@@ -797,6 +794,7 @@ function construireExport() {
 }
 
 document.getElementById('btnVoirSauvegarde').addEventListener('click', () => {
+  if (verrouille()) return;
   const zoneTexte = document.getElementById('texteSauvegarde');
   zoneTexte.value = JSON.stringify(construireExport(), null, 2);
   zoneTexte.style.display = 'block';
@@ -804,6 +802,7 @@ document.getElementById('btnVoirSauvegarde').addEventListener('click', () => {
 });
 
 document.getElementById('btnCopierSauvegarde').addEventListener('click', async () => {
+  if (verrouille()) return;
   const zoneTexte = document.getElementById('texteSauvegarde');
   try {
     await navigator.clipboard.writeText(zoneTexte.value);
@@ -817,6 +816,7 @@ document.getElementById('btnCopierSauvegarde').addEventListener('click', async (
 });
 
 document.getElementById('btnRestaurer').addEventListener('click', async () => {
+  if (verrouille()) return;
   const texte = document.getElementById('texteRestauration').value.trim();
   if (!texte) { afficherStatut('Colle d\'abord un texte de sauvegarde', 'erreur'); return; }
 
@@ -900,8 +900,12 @@ document.getElementById('btnRestaurer').addEventListener('click', async () => {
 
 
 /* ============================================================
-   15. CONNEXION / DÉCONNEXION
-   ============================================================ */
+   14. DÉMARRAGE DE L'APPLICATION
+   ============================================================
+   Appelé une fois la session ouverte — soit par compte.js après une
+   connexion réussie, soit par le bloc d'initialisation en fin de fichier
+   si une session était déjà en cours.
+   ------------------------------------------------------------ */
 
 async function demarrerAppli() {
   document.getElementById('ecranConnexion').style.display = 'none';
@@ -912,54 +916,22 @@ async function demarrerAppli() {
   document.getElementById('champDateRameur').value = aujourdhui();
   document.getElementById('champDateTapis').value = aujourdhui();
 
+  monRole = await chargerRole();
+  estLecteur = (monRole !== 'proprietaire');
+  if (estLecteur) appliquerModeConsultation();
+
   const charge = await chargerDonnees();
   if (charge) toutAfficher();
-}
 
-async function seConnecter() {
-  const email = document.getElementById('champEmail').value.trim();
-  const motDePasse = document.getElementById('champMotDePasse').value;
-  const zoneErreur = document.getElementById('erreurConnexion');
-  const bouton = document.getElementById('btnConnexion');
-
-  if (!email || !motDePasse) {
-    zoneErreur.textContent = 'Renseigne ton email et ton mot de passe.';
-    return;
-  }
-
-  bouton.disabled = true;
-  bouton.textContent = 'Connexion…';
-  zoneErreur.textContent = '';
-
-  try {
-    const { error } = await bdd.auth.signInWithPassword({ email: email, password: motDePasse });
-    if (error) {
-      zoneErreur.textContent = 'Connexion refusée : vérifie ton email et ton mot de passe.';
-      return;
-    }
-    document.getElementById('champMotDePasse').value = '';
-    await demarrerAppli();
-  } catch (e) {
-    zoneErreur.textContent = 'Pas de connexion au serveur.';
-  } finally {
-    bouton.disabled = false;
-    bouton.textContent = 'Se connecter';
+  // Un compte absent de la table "acces" se connecte mais ne voit rien :
+  // on l'explique, sinon l'application paraît simplement vide.
+  if (monRole === null) {
+    afficherStatut(raisonSansAcces || "Ce compte n'a accès à aucune donnée", 'erreur');
   }
 }
-
-document.getElementById('btnConnexion').addEventListener('click', seConnecter);
-document.getElementById('champMotDePasse').addEventListener('keydown', evenement => {
-  if (evenement.key === 'Enter') seConnecter();
-});
-
-document.getElementById('btnDeconnexion').addEventListener('click', async () => {
-  await bdd.auth.signOut();
-  location.reload();
-});
-
 
 /* ============================================================
-   16. DÉMARRAGE
+   15. DÉMARRAGE
    ============================================================
    Supabase garde la session dans le navigateur : tant qu'elle est valide,
    on entre directement dans l'application sans repasser par la connexion.
