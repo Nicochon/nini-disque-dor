@@ -4,7 +4,7 @@ Application web personnelle de suivi quotidien : activités, douleur au dos, hyd
 poids et performances (rameur, tapis).
 
 Mobile-first, en HTML/CSS/JavaScript classique — pas de framework, pas d'étape de build.
-Un seul fichier `index.html`, avec [Supabase](https://supabase.com) pour le stockage.
+Trois fichiers statiques, avec [Supabase](https://supabase.com) pour le stockage.
 
 ## Utilisation
 
@@ -15,8 +15,13 @@ aucune donnée n'est lisible.
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | Toute l'application : interface, styles et logique |
+| `index.html` | Structure de la page |
+| `styles.css` | Mise en forme |
+| `app.js` | Toute la logique : connexion, calendrier, badges, graphiques |
 | `schema-supabase.sql` | Schéma de la base — tables, contraintes, sécurité |
+
+`app.js` s'exécute après le chargement de la librairie Supabase : garder cet ordre
+dans les deux balises `<script>` en fin de `index.html`.
 
 ## Sécurité
 
