@@ -300,3 +300,28 @@ body.mode-lecture input[type="text"] {
   line-height: 1.4;
   margin-top: 2px;
 }
+
+/* Notes repliées quand elles sont nombreuses (vue Mois surtout) */
+.bilan-notes-repliees > summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+  padding: 2px 0;
+  min-height: 32px;
+}
+.bilan-notes-repliees > summary::-webkit-details-marker { display: none; }
+.bilan-notes-repliees > summary .bilan-titre-tuile { margin-bottom: 0; }
+.bilan-compte-notes {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  color: var(--sage-deep);
+  background: #eef3ef;
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+/* Chevron qui pivote à l'ouverture */
+.bilan-compte-notes::after { content: ' ▾'; }
+.bilan-notes-repliees[open] .bilan-compte-notes::after { content: ' ▴'; }
+.bilan-notes-repliees[open] > summary { border-bottom: 1px solid #f0ede4; margin-bottom: 4px; }

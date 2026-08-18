@@ -1102,6 +1102,38 @@ function tendance(ecart, baisseEstBonne, suffixe) {
   return `<div class="bilan-tendance ${bonne ? 'mieux' : 'moins'}">${fleche} ${valeur} ${suffixe}</div>`;
 }
 
+/* Liste des notes écrites sur la période.
+
+   Au-delà de six, on replie : un mois chargé produirait deux ou trois
+   écrans de notes, qui repousseraient les statistiques hors de vue.
+   On utilise <details>, replié par défaut — aucun JavaScript nécessaire,
+   et le navigateur gère l'ouverture. */
+const SEUIL_NOTES_REPLIEES = 6;
+
+function listeNotes(notes) {
+  const lignes = notes.map(note => `
+    <div class="bilan-note">
+      <span class="pastille" style="background:${couleurDouleur(note.douleur)}"></span>
+      <div>
+        <div class="bilan-note-entete">${versDate(note.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} · douleur ${note.douleur}</div>
+        <div class="bilan-note-texte">${note.texte.replace(/</g, '&lt;')}</div>
+      </div>
+    </div>`).join('');
+
+  if (notes.length <= SEUIL_NOTES_REPLIEES) {
+    return `<div class="bilan-titre-tuile">Notes de la période</div>${lignes}`;
+  }
+
+  return `
+    <details class="bilan-notes-repliees">
+      <summary>
+        <span class="bilan-titre-tuile">Notes de la période</span>
+        <span class="bilan-compte-notes">${notes.length} notes</span>
+      </summary>
+      ${lignes}
+    </details>`;
+}
+
 function afficherBilan() {
   const bornes = bornesPeriode(dateReferenceBilan, typePeriodeBilan);
   document.getElementById('libelleBilan').textContent =
@@ -1205,15 +1237,7 @@ function afficherBilan() {
 
       ${bilan.notes.length ? `
       <div class="bilan-tuile pleine">
-        <div class="bilan-titre-tuile">Notes de la période</div>
-        ${bilan.notes.map(note => `
-          <div class="bilan-note">
-            <span class="pastille" style="background:${couleurDouleur(note.douleur)}"></span>
-            <div>
-              <div class="bilan-note-entete">${versDate(note.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} · douleur ${note.douleur}</div>
-              <div class="bilan-note-texte">${note.texte.replace(/</g, '&lt;')}</div>
-            </div>
-          </div>`).join('')}
+        ${listeNotes(bilan.notes)}
       </div>` : ''}
     </div>
     ${bilan.periodeEnCours
