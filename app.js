@@ -620,24 +620,58 @@ function afficherListePoids() {
    11. RAMEUR ET TAPIS
    ============================================================ */
 
+/* Ramène une saisie libre au format "m:ss" attendu par la base.
+
+   Les deux-points obligent à changer de clavier sur téléphone : on accepte
+   donc le point et la virgule, ainsi que la saisie sans séparateur du tout.
+   Toutes ces écritures donnent 4:06 — "4:06", "4.06", "4,06", "4.6", "406".
+
+   Renvoie null si la saisie ne veut rien dire. */
+function normaliserTempsRameur(saisie) {
+  const nettoye = String(saisie).trim().replace(/\s/g, '').replace(/[.,]/g, ':');
+
+  let minutes, secondes;
+  if (nettoye.indexOf(':') !== -1) {
+    const morceaux = nettoye.split(':');
+    if (morceaux.length !== 2) return null;
+    minutes = morceaux[0];
+    secondes = morceaux[1];
+  } else if (/^\d{3,4}$/.test(nettoye)) {
+    // "406" ou "1230" : les deux derniers chiffres sont les secondes.
+    minutes = nettoye.slice(0, nettoye.length - 2);
+    secondes = nettoye.slice(-2);
+  } else {
+    return null;
+  }
+
+  if (!/^\d{1,2}$/.test(minutes) || !/^\d{1,2}$/.test(secondes)) return null;
+  // "4.6" : on comprend 6 secondes, pas 60.
+  if (secondes.length === 1) secondes = '0' + secondes;
+  if (Number(secondes) > 59) return null;
+
+  return Number(minutes) + ':' + secondes;
+}
+
 document.getElementById('btnAjouterRameur').addEventListener('click', async () => {
   if (verrouille()) return;
   const date = document.getElementById('champDateRameur').value;
-  const temps = document.getElementById('champTempsRameur').value.trim();
+  const champTemps = document.getElementById('champTempsRameur');
+  const temps = normaliserTempsRameur(champTemps.value);
 
   if (!date) { afficherStatut('Choisis une date', 'erreur'); return; }
-  // Même contrôle que la contrainte posée en base, pour un message clair.
-  if (!/^\d{1,2}:[0-5]\d$/.test(temps)) {
-    afficherStatut('Format attendu : 4:06', 'erreur');
+  if (!temps) {
+    afficherStatut('Temps illisible — écris par exemple 4.06', 'erreur');
     return;
   }
+  // On réaffiche le temps compris, pour que la conversion soit visible.
+  champTemps.value = temps;
 
   const { data, error } = await bdd.from('rameur').insert({ date: date, temps: temps }).select();
   if (error) { afficherStatut('Erreur : ' + error.message, 'erreur'); return; }
 
   donnees.rameur.push(data[0]);
-  document.getElementById('champTempsRameur').value = '';
-  afficherStatut('Perf rameur ajoutée ✓', 'ok');
+  champTemps.value = '';
+  afficherStatut(`Perf rameur ${temps} ajoutée ✓`, 'ok');
   afficherListeRameur();
   afficherBadges();
 });
@@ -869,7 +903,7 @@ document.getElementById('btnRestaurer').addEventListener('click', async () => {
        en comparant sur (date + valeurs). */
     const signatureRameur = new Set(donnees.rameur.map(e => e.date + '|' + e.temps));
     const lignesRameur = (importe.rameur || [])
-      .map(e => ({ date: normaliserDate(e.date), temps: e.temps }))
+      .map(e => ({ date: normaliserDate(e.date), temps: normaliserTempsRameur(e.temps) }))
       .filter(e => e.date && e.temps && !signatureRameur.has(e.date + '|' + e.temps));
     if (lignesRameur.length) {
       const { error } = await bdd.from('rameur').insert(lignesRameur);
