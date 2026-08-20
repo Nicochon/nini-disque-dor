@@ -437,8 +437,11 @@ const curseurEau = document.getElementById('curseurEau');
 curseurEau.addEventListener('input', () => {
   document.getElementById('valeurEau').textContent = `${curseurEau.value} cl`;
 });
-// "change" (et pas "input") : on n'enregistre qu'une fois le doigt relâché.
-curseurEau.addEventListener('change', async () => {
+
+/* L'eau ne part en base qu'au bouton, comme la douleur. Le curseur seul
+   n'enregistre rien : en faisant défiler la page au doigt, on l'effleure
+   sans le vouloir, et la journée était réécrite dans le dos. */
+document.getElementById('btnEnregistrerEau').addEventListener('click', async () => {
   const jour = jourEnMemoire(aujourdhui());
   jour.eau = parseInt(curseurEau.value, 10);
   const message = jour.eau >= OBJECTIF_EAU ? 'Objectif 2 L atteint ✓' : 'Eau enregistrée ✓';
