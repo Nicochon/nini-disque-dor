@@ -17,7 +17,7 @@
    En cas de doute après une mise en ligne, incrémente VERSION.
    ------------------------------------------------------------ */
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `suivi-${VERSION}`;
 
 // L'habillage : tout ce qu'il faut pour afficher l'application.
