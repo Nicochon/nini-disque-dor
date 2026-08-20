@@ -22,13 +22,15 @@ const RECORD_RAMEUR_INITIAL = '4:06'; // record à battre sur 1000 m
 const OBJECTIF_EAU = 200;           // cl
 
 let donnees = {
-  jours: {},    // { "2026-08-17": {kine_exo, sport, kine_seance, regime, velo, douleur, douleur_note, eau} }
+  jours: {},    // { "2026-08-17": {kine_renfo, kine_mobilite, sport, kine_seance, regime, velo, douleur, douleur_note, eau} }
   poids: [],    // [{ id, date, weight }]
   rameur: [],   // [{ id, date, temps }]
   tapis: []     // [{ id, date, duree, vitesse, inclinaison }]
 };
 
-const ACTIVITES = ['kine_exo', 'sport', 'kine_seance', 'regime', 'velo'];
+// Les exercices kiné se font en deux temps : le renforcement et la mobilité.
+// Ils se cochent séparément — une journée peut n'en compter qu'un des deux.
+const ACTIVITES = ['kine_renfo', 'kine_mobilite', 'sport', 'kine_seance', 'regime', 'velo'];
 
 let moisAffiche = new Date();
 let jourSelectionne = null;
@@ -197,7 +199,8 @@ function jourEnMemoire(cle) {
   if (!donnees.jours[cle]) {
     donnees.jours[cle] = {
       date: cle,
-      kine_exo: false, sport: false, kine_seance: false,
+      kine_renfo: false, kine_mobilite: false,
+      sport: false, kine_seance: false,
       regime: false, velo: false,
       douleur: null, douleur_note: null, eau: 0
     };
@@ -209,7 +212,8 @@ async function sauvegarderJour(cle, messageSucces) {
   const jour = jourEnMemoire(cle);
   const ligne = {
     date: cle,
-    kine_exo: !!jour.kine_exo,
+    kine_renfo: !!jour.kine_renfo,
+    kine_mobilite: !!jour.kine_mobilite,
     sport: !!jour.sport,
     kine_seance: !!jour.kine_seance,
     regime: !!jour.regime,
@@ -483,7 +487,8 @@ function calculerBadges() {
 
   const listeJours = Object.values(donnees.jours);
   const nbSeancesKine = listeJours.filter(jour => jour.kine_seance).length;
-  const nbExosMaison = listeJours.filter(jour => jour.kine_exo).length;
+  const nbRenfo = listeJours.filter(jour => jour.kine_renfo).length;
+  const nbMobilite = listeJours.filter(jour => jour.kine_mobilite).length;
 
   const poidsReleves = donnees.poids.map(entree => Number(entree.weight)).filter(v => !isNaN(v));
   const poidsMini = poidsReleves.length ? Math.min(...poidsReleves) : null;
@@ -501,7 +506,8 @@ function calculerBadges() {
     { icone: '🔥', libelle: "14 jours d'affilée", obtenu: serieActivite >= 14 },
     { icone: '🥗', libelle: '7 jours sans écart', obtenu: serieRegime >= 7 },
     { icone: '🧑‍⚕️', libelle: '5 séances kiné', obtenu: nbSeancesKine >= 5 },
-    { icone: '🏠', libelle: '10 exos maison',     obtenu: nbExosMaison >= 10 },
+    { icone: '💪', libelle: '10 renforcements',   obtenu: nbRenfo >= 10 },
+    { icone: '🤸', libelle: '10 mobilités',       obtenu: nbMobilite >= 10 },
     { icone: '⚖️', libelle: 'Sous les 95 kg',     obtenu: poidsMini !== null && poidsMini < 95 },
     { icone: '⚖️', libelle: 'Sous les 90 kg',     obtenu: poidsMini !== null && poidsMini < 90 },
     { icone: '⚖️', libelle: 'Sous les 85 kg',     obtenu: poidsMini !== null && poidsMini < 85 },
@@ -874,7 +880,10 @@ document.getElementById('btnRestaurer').addEventListener('click', async () => {
       const source = importe.days[dateBrute] || {};
       lignesJours.push({
         date: date,
-        kine_exo: !!source.kine_exo,
+        // Les sauvegardes d'avant la distinction renfo / mobilité portent
+        // "kine_exo" : tout ce qu'elles contiennent est du renforcement.
+        kine_renfo: !!(source.kine_renfo || source.kine_exo),
+        kine_mobilite: !!source.kine_mobilite,
         sport: !!source.sport,
         kine_seance: !!source.kine_seance,
         regime: !!source.regime,
@@ -1096,9 +1105,9 @@ function calculerBilan(cleDebut, cleFin) {
     periodeEnCours: cleFin > cleAujourdhui,
     aDesDonnees: joursConnus.length > 0 || arrivee !== null,
     seances: seances,
-    // Les quatre séances physiques. La séance chez le kiné en fait partie :
+    // Les cinq séances physiques. La séance chez le kiné en fait partie :
     // c'est un vrai travail, et une cause fréquente de douleur.
-    totalSportif: seances.kine_exo + seances.sport + seances.velo + seances.kine_seance,
+    totalSportif: seances.kine_renfo + seances.kine_mobilite + seances.sport + seances.velo + seances.kine_seance,
     notes: notes,
     regime: joursConnus.filter(jour => jour.regime).length,
     douleur: douleur,
@@ -1187,7 +1196,8 @@ function afficherBilan() {
   }
 
   const nomsActivites = {
-    kine_exo: '🏠 Exo kiné maison',
+    kine_renfo: '💪 Kiné renforcement',
+    kine_mobilite: '🤸 Kiné mobilité',
     sport: '🏋️ Sport salle',
     kine_seance: '🧑‍⚕️ Séance kiné',
     velo: '🚴 Vélo'

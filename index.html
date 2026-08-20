@@ -59,7 +59,8 @@
     </div>
     <div class="cal-grid" id="grilleCalendrier"></div>
     <div class="legend">
-      <span><span class="sw" style="background:var(--sage)"></span>Exo kiné (maison)</span>
+      <span><span class="sw" style="background:var(--sage)"></span>Kiné renforcement</span>
+      <span><span class="sw" style="background:var(--lavande)"></span>Kiné mobilité</span>
       <span><span class="sw" style="background:var(--gold)"></span>Sport (salle)</span>
       <span><span class="sw" style="background:var(--sage-deep)"></span>Séance kiné</span>
       <span><span class="sw" style="background:var(--clay)"></span>Régime</span>
@@ -69,7 +70,8 @@
 
     <div id="panneauJour">
       <div class="day-title" id="titreJour"></div>
-      <div class="toggle-row"><span>Exo kiné (maison)</span><div class="switch" data-cle="kine_exo"><div class="knob"></div></div></div>
+      <div class="toggle-row"><span>Kiné renforcement</span><div class="switch" data-cle="kine_renfo"><div class="knob"></div></div></div>
+      <div class="toggle-row"><span>Kiné mobilité</span><div class="switch" data-cle="kine_mobilite"><div class="knob"></div></div></div>
       <div class="toggle-row"><span>Sport (salle)</span><div class="switch" data-cle="sport"><div class="knob"></div></div></div>
       <div class="toggle-row"><span>Séance kiné</span><div class="switch" data-cle="kine_seance"><div class="knob"></div></div></div>
       <div class="toggle-row"><span>Régime</span><div class="switch" data-cle="regime"><div class="knob"></div></div></div>
@@ -87,8 +89,9 @@
   <!-- ---------- Aujourd'hui (accès rapide) ---------- -->
   <div class="card">
     <h2>Aujourd'hui</h2>
-    <div id="grilleAujourdhui" style="display:grid; grid-template-columns: repeat(5, 1fr); gap:8px;">
-      <div class="today-btn" data-cle="kine_exo"><span class="icon">🏠</span><span class="label">Exo kiné<br>maison</span></div>
+    <div id="grilleAujourdhui" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+      <div class="today-btn" data-cle="kine_renfo"><span class="icon">💪</span><span class="label">Kiné<br>renfo</span></div>
+      <div class="today-btn" data-cle="kine_mobilite"><span class="icon">🤸</span><span class="label">Kiné<br>mobilité</span></div>
       <div class="today-btn" data-cle="sport"><span class="icon">🏋️</span><span class="label">Sport<br>salle</span></div>
       <div class="today-btn" data-cle="kine_seance"><span class="icon">🧑‍⚕️</span><span class="label">Séance<br>kiné</span></div>
       <div class="today-btn" data-cle="regime"><span class="icon">🥗</span><span class="label">Régime</span></div>
@@ -187,7 +190,7 @@
 
   <!-- ---------- Routines (texte statique) ---------- -->
   <div class="card">
-    <h2>Routine maison — 15 min/jour (dos &amp; abdos)</h2>
+    <h2>Routine renforcement — 15 min/jour (dos &amp; abdos)</h2>
     <div style="font-family:var(--sans); font-size:0.85rem; line-height:1.7;">
       1. Bascule du bassin — 1 min<br>
       2. Planche classique — 3 x 30 sec<br>

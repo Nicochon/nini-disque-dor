@@ -12,6 +12,7 @@
   --clay: #b5654a;
   --gold: #c9a227;
   --bleu: #5b7fa6;
+  --lavande: #8b7aa8;
   --line: #d8d3c4;
   --card: #ffffff;
   --sans: -apple-system, system-ui, sans-serif;
@@ -52,8 +53,11 @@ h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01
 .cal-day.selectionne { background: #eef3ef; border-color: var(--sage); }
 .cal-day .num { font-weight: 600; }
 .dots { display: flex; gap: 2px; margin-top: 2px; }
-.dot { width: 5px; height: 5px; border-radius: 50%; background: #e2ddd0; }
-.dot.on.kine_exo { background: var(--sage); }
+/* Six pastilles doivent tenir dans une case du calendrier, large d'environ
+   45 px sur un petit téléphone : 4 px chacune, 2 px d'écart. */
+.dot { width: 4px; height: 4px; border-radius: 50%; background: #e2ddd0; }
+.dot.on.kine_renfo { background: var(--sage); }
+.dot.on.kine_mobilite { background: var(--lavande); }
 .dot.on.sport { background: var(--gold); }
 .dot.on.kine_seance { background: var(--sage-deep); }
 .dot.on.regime { background: var(--clay); }

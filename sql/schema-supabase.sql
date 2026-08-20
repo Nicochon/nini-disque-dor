@@ -28,7 +28,8 @@
 -- ça rend l'upsert trivial côté application (on écrase le jour existant).
 create table if not exists days (
   date          date primary key,
-  kine_exo      boolean not null default false,  -- 🏠 exercices kiné à la maison
+  kine_renfo    boolean not null default false,  -- 💪 exercices kiné de renforcement
+  kine_mobilite boolean not null default false,  -- 🤸 exercices kiné de mobilité
   sport         boolean not null default false,  -- 🏋️ séance en salle
   kine_seance   boolean not null default false,  -- 🧑‍⚕️ rendez-vous chez le kiné
   regime        boolean not null default false,  -- 🥗 journée sans écart
@@ -37,6 +38,25 @@ create table if not exists days (
   douleur_note  text,
   eau           int not null default 0 check (eau between 0 and 200)  -- en centilitres
 );
+
+-- Les exercices kiné se déclinent en deux types : renforcement et mobilité.
+-- Avant cette distinction, une seule colonne "kine_exo" les portait, et tout
+-- ce qui y est enregistré est du renforcement — on la renomme donc, sans
+-- rien perdre, puis on ajoute la mobilité à côté.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'days' and column_name = 'kine_exo'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'days' and column_name = 'kine_renfo'
+  ) then
+    alter table days rename column kine_exo to kine_renfo;
+  end if;
+end $$;
+
+alter table days add column if not exists kine_mobilite boolean not null default false;
 
 -- Pesées : une seule par date (contrainte unique → upsert côté app).
 create table if not exists weights (
