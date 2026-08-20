@@ -49,6 +49,13 @@
     👁️ Mode consultation — les données sont en lecture seule.
   </div>
 
+  <main>
+
+  <!-- ============================================================
+       ONGLET « JOUR » — le quotidien : ce qu'on ouvre en arrivant
+       ============================================================ -->
+  <section class="vue" id="vue-jour">
+
   <!-- ---------- Calendrier ---------- -->
   <div class="card">
     <h2>Calendrier</h2>
@@ -120,6 +127,13 @@
     </div>
   </div>
 
+  </section>
+
+  <!-- ============================================================
+       ONGLET « BILAN » — la prise de recul, badges compris
+       ============================================================ -->
+  <section class="vue" id="vue-bilan">
+
   <!-- ---------- Bilan ---------- -->
   <div class="card">
     <h2>Bilan</h2>
@@ -144,6 +158,13 @@
     <div id="grilleBadges" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px;"></div>
   </div>
 
+  </section>
+
+  <!-- ============================================================
+       ONGLET « POIDS » — saisie, courbe, historique
+       ============================================================ -->
+  <section class="vue" id="vue-poids">
+
   <!-- ---------- Poids ---------- -->
   <div class="card">
     <h2>Poids</h2>
@@ -160,6 +181,37 @@
     </div>
     <div id="zoneCourbePoids"><div class="empty-msg">Pas encore de pesée enregistrée.</div></div>
     <div id="listePoids" style="margin-top:12px;"></div>
+  </div>
+
+  </section>
+
+  <!-- ============================================================
+       ONGLET « SÉANCES » — ce qu'on fait, puis ce qu'on y a mesuré
+       ============================================================ -->
+  <section class="vue" id="vue-seances">
+
+  <!-- ---------- Routines (texte statique) ---------- -->
+  <div class="card">
+    <h2>Routine renforcement — 15 min/jour (dos &amp; abdos)</h2>
+    <div style="font-family:var(--sans); font-size:0.85rem; line-height:1.7;">
+      1. Bascule du bassin — 1 min<br>
+      2. Planche classique — 3 x 30 sec<br>
+      3. Gainage latéral gauche (avec mouvement) — 2 x 20<br>
+      4. Gainage latéral droit (avec mouvement) — 2 x 20<br>
+      5. Bird dog — 2 x 20<br>
+      6. Dead bug — 2 x 20<br>
+      7. Pont fessier — 2 x 20
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Séance salle — rameur &amp; marche (dos)</h2>
+    <div style="font-family:var(--sans); font-size:0.85rem; line-height:1.7;">
+      • Échauffement : 5 min tapis léger<br>
+      • Rameur : 20 min à l'allure habituelle (~2min30/500m) — remplacer par tapis si le dos tire<br>
+      • Marche tapis : 8-10 min, allure soutenue, inclinaison légère (2-4 %) si ok<br>
+      • Retour au calme : 3-5 min marche lente
+    </div>
   </div>
 
   <!-- ---------- Rameur ---------- -->
@@ -189,29 +241,12 @@
     <div id="listeTapis" style="margin-top:12px;"><div class="empty-msg">Aucune donnée pour l'instant.</div></div>
   </div>
 
-  <!-- ---------- Routines (texte statique) ---------- -->
-  <div class="card">
-    <h2>Routine renforcement — 15 min/jour (dos &amp; abdos)</h2>
-    <div style="font-family:var(--sans); font-size:0.85rem; line-height:1.7;">
-      1. Bascule du bassin — 1 min<br>
-      2. Planche classique — 3 x 30 sec<br>
-      3. Gainage latéral gauche (avec mouvement) — 2 x 20<br>
-      4. Gainage latéral droit (avec mouvement) — 2 x 20<br>
-      5. Bird dog — 2 x 20<br>
-      6. Dead bug — 2 x 20<br>
-      7. Pont fessier — 2 x 20
-    </div>
-  </div>
+  </section>
 
-  <div class="card">
-    <h2>Séance salle — rameur &amp; marche (dos)</h2>
-    <div style="font-family:var(--sans); font-size:0.85rem; line-height:1.7;">
-      • Échauffement : 5 min tapis léger<br>
-      • Rameur : 20 min à l'allure habituelle (~2min30/500m) — remplacer par tapis si le dos tire<br>
-      • Marche tapis : 8-10 min, allure soutenue, inclinaison légère (2-4 %) si ok<br>
-      • Retour au calme : 3-5 min marche lente
-    </div>
-  </div>
+  <!-- ============================================================
+       ONGLET « RÉGLAGES » — ce qu'on ne veut ni perdre, ni voir tout le temps
+       ============================================================ -->
+  <section class="vue" id="vue-reglages">
 
   <!-- ---------- Sauvegarde ---------- -->
   <div class="card ecriture">
@@ -237,7 +272,21 @@
   <div style="text-align:center; margin-top:24px;">
     <button class="add" id="btnDeconnexion" style="background:none; color:#9a9284; border:1px solid var(--line);">Se déconnecter</button>
   </div>
+
+  </section>
+  </main>
 </div>
+
+<!-- Barre d'onglets, fixée en bas : à portée de pouce, comme dans une
+     application native. Elle est dans #appli, donc invisible tant qu'on
+     n'est pas connecté. L'attribut data-vue désigne la section à montrer. -->
+<nav id="onglets">
+  <button class="onglet" data-vue="jour"><span class="icon">📅</span><span class="label">Jour</span></button>
+  <button class="onglet" data-vue="poids"><span class="icon">⚖️</span><span class="label">Poids</span></button>
+  <button class="onglet" data-vue="bilan"><span class="icon">📊</span><span class="label">Bilan</span></button>
+  <button class="onglet" data-vue="seances"><span class="icon">🏋️</span><span class="label">Séances</span></button>
+  <button class="onglet" data-vue="reglages"><span class="icon">⚙️</span><span class="label">Réglages</span></button>
+</nav>
 </div>
 
 <div id="statut"></div>

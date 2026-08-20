@@ -16,6 +16,11 @@
   --line: #d8d3c4;
   --card: #ffffff;
   --sans: -apple-system, system-ui, sans-serif;
+  /* Hauteur de la barre d'onglets. Tout ce qui vit en bas de l'écran s'y
+     réfère : le fond de page, la barre de statut. Une seule valeur à
+     changer si la barre grossit. */
+  --hauteur-onglets: 58px;
+  --barre-basse: calc(var(--hauteur-onglets) + env(safe-area-inset-bottom));
 }
 * { box-sizing: border-box; }
 body {
@@ -23,7 +28,9 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: 'Iowan Old Style', Georgia, serif;
-  padding: 20px 14px 80px;
+  /* Le bas de page dégage la barre d'onglets, pour que la dernière carte
+     reste atteignable au défilement. */
+  padding: 20px 14px calc(var(--barre-basse) + 24px);
   -webkit-text-size-adjust: 100%;
 }
 .wrap { max-width: 640px; margin: 0 auto; }
@@ -121,11 +128,40 @@ textarea { width: 100%; padding: 10px; border: 1px solid var(--line); border-rad
 .badge .label { font-size: 0.62rem; line-height: 1.25; color: #6b6459; }
 .badge.unlocked .label { color: var(--ink); font-weight: 600; }
 
+/* --- Onglets --- */
+/* Une seule section visible à la fois. Les autres restent dans le DOM et
+   continuent d'être redessinées par toutAfficher() : avec ce volume de
+   données, le rendu paresseux serait de la complexité gratuite. */
+.vue { display: none; }
+.vue.actif { display: block; }
+
+#onglets {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  display: flex; background: var(--card); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.onglet {
+  flex: 1; min-height: var(--hauteur-onglets);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  background: none; border: none; cursor: pointer; padding: 6px 2px;
+  font-family: var(--sans); color: #9a9284;
+}
+.onglet .icon { font-size: 1.15rem; filter: grayscale(1); opacity: 0.45; transition: opacity 0.15s ease; }
+.onglet .label { font-size: 0.62rem; line-height: 1; }
+.onglet.actif { color: var(--sage-deep); }
+.onglet.actif .icon { filter: none; opacity: 1; }
+.onglet.actif .label { font-weight: 600; }
+.onglet:active { background: #f3f1ea; }
+
 /* --- Barre de statut fixe en bas --- */
+/* Elle se pose juste au-dessus des onglets. À l'état masqué, elle descend
+   de sa propre hauteur PLUS celle de la barre, sinon elle resterait
+   visible par-dessus les onglets. */
 #statut {
-  position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  position: fixed; left: 0; right: 0; bottom: var(--barre-basse); padding: 10px 14px;
   font-family: var(--sans); font-size: 0.8rem; text-align: center; color: white;
-  transform: translateY(100%); transition: transform 0.2s ease; z-index: 50;
+  transform: translateY(calc(100% + var(--barre-basse)));
+  transition: transform 0.2s ease; z-index: 50;
 }
 #statut.visible { transform: translateY(0); }
 #statut.chargement { background: var(--sage-deep); }

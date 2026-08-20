@@ -1318,7 +1318,48 @@ document.querySelectorAll('.bilan-onglet').forEach(onglet => {
 
 
 /* ============================================================
-   15. DÉMARRAGE DE L'APPLICATION
+   15. ONGLETS
+   ============================================================
+   Cinq sections dans la page, une seule visible à la fois. L'onglet
+   ouvert est inscrit dans l'adresse (#bilan) : un rechargement rouvre
+   la même page au lieu de te renvoyer au calendrier.
+
+   On écrit l'adresse avec replaceState plutôt qu'en affectant
+   location.hash : ça met l'URL à jour sans empiler d'entrée dans
+   l'historique. Sinon le bouton « retour » du téléphone ferait défiler
+   les onglets un par un au lieu de quitter l'application.
+   ------------------------------------------------------------ */
+
+const VUES = ['jour', 'poids', 'bilan', 'seances', 'reglages'];
+const VUE_PAR_DEFAUT = 'jour';
+
+function activerVue(nom) {
+  if (!VUES.includes(nom)) nom = VUE_PAR_DEFAUT;   // adresse farfelue : on retombe sur le calendrier
+
+  document.querySelectorAll('.vue').forEach(vue => {
+    vue.classList.toggle('actif', vue.id === 'vue-' + nom);
+  });
+  document.querySelectorAll('.onglet').forEach(onglet => {
+    onglet.classList.toggle('actif', onglet.dataset.vue === nom);
+  });
+
+  history.replaceState(null, '', '#' + nom);
+  window.scrollTo(0, 0);   // on arrive en haut de l'onglet, pas au milieu
+}
+
+document.querySelectorAll('.onglet').forEach(onglet => {
+  onglet.addEventListener('click', () => activerVue(onglet.dataset.vue));
+});
+
+// Adresse changée à la main dans la barre du navigateur.
+window.addEventListener('hashchange', () => activerVue(location.hash.slice(1)));
+
+// Au chargement : l'onglet inscrit dans l'adresse, sinon le calendrier.
+activerVue(location.hash.slice(1));
+
+
+/* ============================================================
+   16. DÉMARRAGE DE L'APPLICATION
    ============================================================
    Appelé une fois la session ouverte — soit par compte.js après une
    connexion réussie, soit par le bloc d'initialisation en fin de fichier
@@ -1349,7 +1390,7 @@ async function demarrerAppli() {
 }
 
 /* ============================================================
-   16. OUVERTURE DE LA SESSION
+   17. OUVERTURE DE LA SESSION
    ============================================================
    Supabase garde la session dans le navigateur : tant qu'elle est valide,
    on entre directement dans l'application sans repasser par la connexion.
