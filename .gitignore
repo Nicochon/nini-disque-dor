@@ -12,6 +12,9 @@
 # Configuration de l'IDE
 .idea/
 
+# Espace de travail de Claude Code : worktrees temporaires et réglages locaux.
+.claude/
+
 # Divers
 .DS_Store
 *.log
