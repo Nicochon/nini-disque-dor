@@ -52,17 +52,25 @@ h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01
 .cal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-family: var(--sans); }
 .cal-nav button { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 6px 14px; font-size: 1rem; cursor: pointer; color: var(--sage-deep); min-height: 34px; }
 .cal-month { font-weight: 600; font-size: 0.9rem; text-transform: capitalize; }
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; font-family: var(--sans); }
+/* La grille déborde sur le padding de la carte : 24 px récupérés, soit une
+   case qui passe d'environ 42 à 46 px sur un écran de 375. La gouttière
+   resserrée à 3 px rend le reste. */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin: 0 -12px; font-family: var(--sans); }
 .cal-dow { text-align: center; font-size: 0.65rem; color: #9a9284; padding-bottom: 4px; }
 .cal-day { position: relative; aspect-ratio: 1; border-radius: 7px; border: 1px solid var(--line); background: #fdfcf9; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-size: 0.8rem; }
 .cal-day.empty { border: none; background: none; cursor: default; }
+/* Une journée où quelque chose a été coché se teinte de vert pâle. De loin,
+   le mois se lit alors comme une suite de jours tenus — c'est ce que le
+   calendrier doit donner à voir en premier. */
+.cal-day.rempli { background: #f1f6f2; }
 .cal-day.today { border-color: var(--sage-deep); border-width: 2px; }
 .cal-day.selectionne { background: #eef3ef; border-color: var(--sage); }
 .cal-day .num { font-weight: 600; }
-.dots { display: flex; gap: 2px; margin-top: 2px; }
-/* Six pastilles doivent tenir dans une case du calendrier, large d'environ
-   45 px sur un petit téléphone : 4 px chacune, 2 px d'écart. */
-.dot { width: 4px; height: 4px; border-radius: 50%; background: #e2ddd0; }
+/* Six pastilles sur une seule ligne les condamnaient à 4 px. Sur deux
+   rangées de trois, elles tiennent en 27 px de large et passent à 7 px :
+   presque le double de diamètre, à largeur de case inchangée. */
+.dots { display: grid; grid-template-columns: repeat(3, 7px); gap: 3px; margin-top: 1px; justify-content: center; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: #f0ede4; }
 .dot.on.kine_renfo { background: var(--sage); }
 .dot.on.kine_mobilite { background: var(--lavande); }
 .dot.on.sport { background: var(--gold); }

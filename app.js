@@ -290,8 +290,13 @@ function afficherCalendrier() {
     const cle = cleDate(dateObjet);
     const jour = donnees.jours[cle] || {};
 
+    // Une journée où au moins une case est cochée se teinte : c'est ce qui
+    // doit sauter aux yeux quand on ouvre le calendrier.
+    const aTenu = ACTIVITES.some(activite => jour[activite]);
+
     const case_ = document.createElement('div');
     case_.className = 'cal-day'
+      + (aTenu ? ' rempli' : '')
       + (cle === cleAujourdhui ? ' today' : '')
       + (cle === jourSelectionne ? ' selectionne' : '');
 
