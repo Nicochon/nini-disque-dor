@@ -19,7 +19,11 @@
 
 const DATE_DEBUT = '2026-08-17';   // premier jour du suivi
 const RECORD_RAMEUR_INITIAL = '4:06'; // record à battre sur 1000 m
-const OBJECTIF_EAU = 200;           // cl
+const OBJECTIF_EAU = 150;           // cl — soit trois gourdes de 50
+/* Le même objectif, écrit pour être lu : « 1,5 L ». On le dérive de la
+   constante plutôt que de le recopier, pour qu'aucun libellé ne mente le
+   jour où l'objectif change encore. */
+const OBJECTIF_EAU_TEXTE = (OBJECTIF_EAU / 100).toLocaleString('fr-FR') + ' L';
 
 let donnees = {
   jours: {},    // { "2026-08-17": {kine_renfo, kine_mobilite, sport, kine_seance, regime, velo, douleur, douleur_note, eau} }
@@ -248,7 +252,70 @@ function afficherCompteurJours() {
 
 
 /* ============================================================
-   7. CALENDRIER
+   7. JAUGES — des icônes qu'on appuie, plus de curseur
+   ============================================================
+   Un curseur se déplace tout seul quand le doigt le frôle en faisant
+   défiler la page ; un appui, lui, est toujours volontaire. Chaque jauge
+   est donc une rangée de crans : appuyer sur le n-ième donne la valeur n,
+   et réappuyer sur le cran courant redescend à zéro — c'est la seule
+   façon de revenir à « rien ».
+
+   Un seul mécanisme, deux réglages :
+     · douleur — dix crans de 1, teintés selon l'échelle du calendrier ;
+     · eau     — quatre gourdes de 50 cl, l'objectif étant atteint à trois.
+
+   Les icônes sont dessinées en SVG et non prises dans les émojis : un
+   émoji impose ses propres couleurs, alors qu'il faut ici du bleu pour
+   l'eau et le vert-jaune-rouge de la douleur.
+   ------------------------------------------------------------ */
+
+const PAS_EAU = 50;                             // cl par gourde
+/* Quatre gourdes, alors que l'objectif en vaut trois : on peut boire
+   au-delà, et la quatrième est là pour ça. Le maximum, 200 cl, est celui
+   qu'accepte la contrainte de la base. */
+const NB_GOURDES = 4;
+
+// Le repère sous la jauge annonce l'objectif sans le recopier à la main.
+document.getElementById('objectifEau').textContent = `Objectif ${OBJECTIF_EAU_TEXTE}`;
+
+// Une gourde : un bouchon posé sur un corps arrondi. Elle se colore
+// entièrement par currentColor, donc depuis la feuille de styles.
+const DESSIN_GOURDE = `
+    <svg viewBox="0 0 24 40" aria-hidden="true">
+      <rect x="9" y="0" width="6" height="7" rx="1.5"/>
+      <rect x="4" y="7" width="16" height="32" rx="6"/>
+    </svg>`;
+
+function dessinerJaugeDouleur(conteneur, valeur) {
+  const teinte = couleurDouleur(valeur);   // la même que la barre du calendrier
+  conteneur.innerHTML = Array.from({ length: 10 }, (_, index) => {
+    const cran = index + 1;
+    const allume = cran <= valeur;
+    const fond = allume ? ` style="background:${teinte}; border-color:${teinte}"` : '';
+    return `<button class="cran${allume ? ' allume' : ''}" data-cran="${cran}"${fond}>${cran}</button>`;
+  }).join('');
+}
+
+function dessinerJaugeEau(conteneur, valeur) {
+  conteneur.innerHTML = Array.from({ length: NB_GOURDES }, (_, index) => {
+    const cran = index + 1;
+    const allume = cran * PAS_EAU <= valeur;
+    return `<button class="gourde${allume ? ' allume' : ''}" data-cran="${cran}">${DESSIN_GOURDE}</button>`;
+  }).join('');
+}
+
+/* Traduit un appui en valeur. Renvoie null si l'appui n'a pas atterri sur
+   un cran — un doigt posé entre deux icônes ne doit rien changer. */
+function valeurChoisie(evenement, valeurActuelle, pas) {
+  const cran = evenement.target.closest('[data-cran]');
+  if (!cran) return null;
+  const valeur = Number(cran.dataset.cran) * pas;
+  return (valeur === valeurActuelle) ? 0 : valeur;
+}
+
+
+/* ============================================================
+   8. CALENDRIER
    ============================================================ */
 
 function couleurDouleur(niveau) {
@@ -335,13 +402,21 @@ function ouvrirPanneauJour(cle) {
     interrupteur.classList.toggle('on', !!jour[interrupteur.dataset.cle]);
   });
 
-  const douleurRenseignee = jour.douleur !== null && jour.douleur !== undefined;
-  document.getElementById('curseurDouleurPanneau').value = douleurRenseignee ? jour.douleur : 0;
-  document.getElementById('valeurDouleurPanneau').textContent = douleurRenseignee ? jour.douleur : '–';
   document.getElementById('noteDouleurPanneau').value = jour.douleur_note || '';
+  rafraichirDouleurPanneau();
 
   afficherCalendrier();  // pour surligner la case sélectionnée
   panneau.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* Redessine la seule douleur du panneau, sans toucher au reste : appuyer
+   sur un cran ne doit ni refaire défiler la page, ni écraser la note en
+   cours de frappe. */
+function rafraichirDouleurPanneau() {
+  const jour = donnees.jours[jourSelectionne] || {};
+  const renseignee = jour.douleur !== null && jour.douleur !== undefined;
+  document.getElementById('valeurDouleurPanneau').textContent = renseignee ? jour.douleur : '–';
+  dessinerJaugeDouleur(document.getElementById('jaugeDouleurPanneau'), renseignee ? jour.douleur : 0);
 }
 
 // Les interrupteurs du panneau enregistrent immédiatement.
@@ -359,20 +434,29 @@ document.querySelectorAll('#panneauJour .switch').forEach(interrupteur => {
   });
 });
 
-const curseurDouleurPanneau = document.getElementById('curseurDouleurPanneau');
-curseurDouleurPanneau.addEventListener('input', () => {
-  document.getElementById('valeurDouleurPanneau').textContent = curseurDouleurPanneau.value;
+// La douleur du panneau : un appui sur un cran enregistre aussitôt.
+document.getElementById('jaugeDouleurPanneau').addEventListener('click', async evenement => {
+  if (!jourSelectionne || verrouille()) return;
+  const jour = jourEnMemoire(jourSelectionne);
+  const choix = valeurChoisie(evenement, jour.douleur, 1);
+  if (choix === null) return;
+
+  jour.douleur = choix;
+  rafraichirDouleurPanneau();
+  await sauvegarderJour(jourSelectionne, 'Douleur enregistrée ✓');
+  afficherCalendrier();
+  afficherBilan();
+  if (jourSelectionne === aujourdhui()) afficherAujourdhui();
 });
 
-document.getElementById('btnEnregistrerPanneau').addEventListener('click', async () => {
-  if (!jourSelectionne) return;
+/* La note part en base quand tu quittes le champ. Un champ texte ne bouge
+   pas tout seul quand on fait défiler : pas besoin de bouton ici. */
+document.getElementById('noteDouleurPanneau').addEventListener('change', async () => {
+  if (!jourSelectionne || verrouille()) return;
   const jour = jourEnMemoire(jourSelectionne);
-  jour.douleur = parseInt(curseurDouleurPanneau.value, 10);
   jour.douleur_note = document.getElementById('noteDouleurPanneau').value.trim() || null;
-  await sauvegarderJour(jourSelectionne, 'Jour enregistré ✓');
-  afficherCalendrier();
-  afficherBadges();
-  if (jourSelectionne === aujourdhui()) afficherAujourdhui();
+  await sauvegarderJour(jourSelectionne, 'Note enregistrée ✓');
+  afficherBilan();
 });
 
 document.getElementById('btnMoisPrecedent').addEventListener('click', () => {
@@ -386,7 +470,7 @@ document.getElementById('btnMoisSuivant').addEventListener('click', () => {
 
 
 /* ============================================================
-   8. SECTION "AUJOURD'HUI"
+   9. SECTION "AUJOURD'HUI"
    ============================================================ */
 
 function afficherAujourdhui() {
@@ -397,13 +481,16 @@ function afficherAujourdhui() {
   });
 
   const douleurRenseignee = jour.douleur !== null && jour.douleur !== undefined;
-  document.getElementById('curseurDouleurJour').value = douleurRenseignee ? jour.douleur : 0;
   document.getElementById('valeurDouleurJour').textContent = douleurRenseignee ? jour.douleur : '–';
-  document.getElementById('noteDouleurJour').value = jour.douleur_note || '';
+  dessinerJaugeDouleur(document.getElementById('jaugeDouleurJour'), douleurRenseignee ? jour.douleur : 0);
+
+  // On ne réécrit pas la note pendant que tu la tapes.
+  const champNote = document.getElementById('noteDouleurJour');
+  if (document.activeElement !== champNote) champNote.value = jour.douleur_note || '';
 
   const eau = jour.eau || 0;
-  document.getElementById('curseurEau').value = eau;
   document.getElementById('valeurEau').textContent = `${eau} cl`;
+  dessinerJaugeEau(document.getElementById('jaugeEau'), eau);
 }
 
 // Les 5 gros boutons : un appui coche ou décoche l'activité du jour.
@@ -425,37 +512,45 @@ document.querySelectorAll('.today-btn').forEach(bouton => {
   });
 });
 
-const curseurDouleurJour = document.getElementById('curseurDouleurJour');
-curseurDouleurJour.addEventListener('input', () => {
-  document.getElementById('valeurDouleurJour').textContent = curseurDouleurJour.value;
-});
-
-document.getElementById('btnEnregistrerDouleurJour').addEventListener('click', async () => {
+// La douleur du jour : un appui sur un cran enregistre aussitôt.
+document.getElementById('jaugeDouleurJour').addEventListener('click', async evenement => {
+  if (verrouille()) return;
   const jour = jourEnMemoire(aujourdhui());
-  jour.douleur = parseInt(curseurDouleurJour.value, 10);
-  jour.douleur_note = document.getElementById('noteDouleurJour').value.trim() || null;
+  const choix = valeurChoisie(evenement, jour.douleur, 1);
+  if (choix === null) return;
+
+  jour.douleur = choix;
+  afficherAujourdhui();
   await sauvegarderJour(aujourdhui(), 'Douleur enregistrée ✓');
   afficherCalendrier();
+  afficherBilan();
 });
 
-const curseurEau = document.getElementById('curseurEau');
-curseurEau.addEventListener('input', () => {
-  document.getElementById('valeurEau').textContent = `${curseurEau.value} cl`;
-});
-
-/* L'eau ne part en base qu'au bouton, comme la douleur. Le curseur seul
-   n'enregistre rien : en faisant défiler la page au doigt, on l'effleure
-   sans le vouloir, et la journée était réécrite dans le dos. */
-document.getElementById('btnEnregistrerEau').addEventListener('click', async () => {
+document.getElementById('noteDouleurJour').addEventListener('change', async () => {
+  if (verrouille()) return;
   const jour = jourEnMemoire(aujourdhui());
-  jour.eau = parseInt(curseurEau.value, 10);
-  const message = jour.eau >= OBJECTIF_EAU ? 'Objectif 2 L atteint ✓' : 'Eau enregistrée ✓';
+  jour.douleur_note = document.getElementById('noteDouleurJour').value.trim() || null;
+  await sauvegarderJour(aujourdhui(), 'Note enregistrée ✓');
+  afficherBilan();
+});
+
+// L'eau : une gourde vidée, un appui.
+document.getElementById('jaugeEau').addEventListener('click', async evenement => {
+  if (verrouille()) return;
+  const jour = jourEnMemoire(aujourdhui());
+  const choix = valeurChoisie(evenement, jour.eau || 0, PAS_EAU);
+  if (choix === null) return;
+
+  jour.eau = choix;
+  afficherAujourdhui();
+  const message = jour.eau >= OBJECTIF_EAU ? `Objectif ${OBJECTIF_EAU_TEXTE} atteint ✓` : 'Eau enregistrée ✓';
   await sauvegarderJour(aujourdhui(), message);
+  afficherBilan();
 });
 
 
 /* ============================================================
-   9. BADGES
+   10. BADGES
    ============================================================ */
 
 // "4:06" -> 246 secondes
@@ -535,7 +630,7 @@ function afficherBadges() {
 
 
 /* ============================================================
-   10. POIDS
+   11. POIDS
    ============================================================ */
 
 document.getElementById('btnAjouterPoids').addEventListener('click', async () => {
@@ -631,7 +726,7 @@ function afficherListePoids() {
 
 
 /* ============================================================
-   11. RAMEUR ET TAPIS
+   12. RAMEUR ET TAPIS
    ============================================================ */
 
 /* Ramène une saisie libre au format "m:ss" attendu par la base.
@@ -755,7 +850,7 @@ function afficherListeTapis() {
 
 
 /* ============================================================
-   12. SUPPRESSION D'UNE LIGNE
+   13. SUPPRESSION D'UNE LIGNE
    ============================================================
    Confirmation en deux temps : le premier appui transforme le bouton en
    "Supprimer ?", le second supprime vraiment. Ça évite la fenêtre de
@@ -814,7 +909,7 @@ document.addEventListener('click', async evenement => {
 
 
 /* ============================================================
-   13. SAUVEGARDE : EXPORT ET IMPORT JSON
+   14. SAUVEGARDE : EXPORT ET IMPORT JSON
    ============================================================
    Les dates sont écrites en jj/mm/aaaa dans l'export (plus lisible) et
    reconverties en aaaa-mm-jj à l'import.
@@ -952,7 +1047,7 @@ document.getElementById('btnRestaurer').addEventListener('click', async () => {
 
 
 /* ============================================================
-   14. BILAN — statistiques par semaine ou par mois
+   15. BILAN — statistiques par semaine ou par mois
    ============================================================
    Tout est recalculé à partir de donnees.jours et donnees.poids, déjà
    chargés en mémoire : aucune requête supplémentaire.
@@ -1323,7 +1418,7 @@ document.querySelectorAll('.bilan-onglet').forEach(onglet => {
 
 
 /* ============================================================
-   15. ONGLETS
+   16. ONGLETS
    ============================================================
    Cinq sections dans la page, une seule visible à la fois. L'onglet
    ouvert est inscrit dans l'adresse (#bilan) : un rechargement rouvre
@@ -1364,7 +1459,7 @@ activerVue(location.hash.slice(1));
 
 
 /* ============================================================
-   16. DÉMARRAGE DE L'APPLICATION
+   17. DÉMARRAGE DE L'APPLICATION
    ============================================================
    Appelé une fois la session ouverte — soit par compte.js après une
    connexion réussie, soit par le bloc d'initialisation en fin de fichier
@@ -1395,7 +1490,7 @@ async function demarrerAppli() {
 }
 
 /* ============================================================
-   17. OUVERTURE DE LA SESSION
+   18. OUVERTURE DE LA SESSION
    ============================================================
    Supabase garde la session dans le navigateur : tant qu'elle est valide,
    on entre directement dans l'application sans repasser par la connexion.

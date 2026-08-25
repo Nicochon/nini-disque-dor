@@ -85,10 +85,9 @@
       <div class="toggle-row"><span>Vélo</span><div class="switch" data-cle="velo"><div class="knob"></div></div></div>
       <div class="toggle-row" style="flex-direction:column; align-items:stretch; gap:8px;">
         <div style="display:flex; justify-content:space-between;"><span>Douleur dos</span><span id="valeurDouleurPanneau" style="font-weight:700; color:var(--clay);">–</span></div>
-        <input type="range" id="curseurDouleurPanneau" min="0" max="10" step="1" style="width:100%;">
-        <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#9a9284;"><span>0 · aucune</span><span>10 · insupportable</span></div>
+        <div class="jauge" id="jaugeDouleurPanneau"></div>
+        <div class="jauge-legende"><span>0 · aucune</span><span>10 · insupportable</span></div>
         <input type="text" id="noteDouleurPanneau" placeholder="Contexte..." style="font-size:0.85rem;">
-        <button class="add ecriture" id="btnEnregistrerPanneau" style="width:100%;">Enregistrer ce jour</button>
       </div>
     </div>
   </div>
@@ -110,10 +109,9 @@
         <span>Douleur dos aujourd'hui</span>
         <span id="valeurDouleurJour" style="font-weight:700; color:var(--clay);">–</span>
       </div>
-      <input type="range" id="curseurDouleurJour" min="0" max="10" step="1" style="width:100%; margin-top:8px;">
-      <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#9a9284; font-family:var(--sans);"><span>0 · aucune</span><span>10 · insupportable</span></div>
+      <div class="jauge" id="jaugeDouleurJour" style="margin-top:10px;"></div>
+      <div class="jauge-legende"><span>0 · aucune</span><span>10 · insupportable</span></div>
       <input type="text" id="noteDouleurJour" placeholder="Contexte (ex : décharge sous la douche, tire après rameur...)" style="margin-top:8px; font-size:0.85rem;">
-      <button class="add ecriture" id="btnEnregistrerDouleurJour" style="width:100%; margin-top:8px;">Enregistrer la douleur du jour</button>
     </div>
 
     <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
@@ -121,9 +119,8 @@
         <span>💧 Eau bue aujourd'hui</span>
         <span id="valeurEau" style="font-weight:700; color:var(--bleu);">0 cl</span>
       </div>
-      <input type="range" id="curseurEau" min="0" max="200" step="10" style="width:100%; margin-top:8px; accent-color:var(--bleu);">
-      <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#9a9284; font-family:var(--sans);"><span>0 cl</span><span>Objectif 2 L</span></div>
-      <button class="add ecriture" id="btnEnregistrerEau" style="width:100%; margin-top:8px;">Enregistrer l'eau du jour</button>
+      <div class="jauge jauge-eau" id="jaugeEau" style="margin-top:10px;"></div>
+      <div class="jauge-legende"><span>1 gourde = 50 cl</span><span id="objectifEau">Objectif 1,5 L</span></div>
     </div>
   </div>
 

@@ -108,12 +108,42 @@ label { display: block; font-family: var(--sans); font-size: 0.82rem; margin-bot
 input[type="number"], input[type="date"], input[type="text"], input[type="email"], input[type="password"] {
   width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 1rem; font-family: var(--sans); background: #fdfcf9;
 }
-/* Les curseurs (douleur, eau) vivent au milieu d'une page qui défile.
-   Par défaut, un doigt posé dessus est capturé par le curseur : en voulant
-   faire défiler la page, on déplace la valeur sans le vouloir.
-   "pan-y" rend le défilement vertical au navigateur ; seul un geste
-   horizontal, forcément volontaire, déplace encore le curseur. */
-input[type="range"] { touch-action: pan-y; }
+/* --- Jauges (douleur, eau) --- */
+/* Elles ont remplacé les curseurs : un glissement se déclenchait tout seul
+   au défilement, un appui jamais. */
+/* La règle commune ne fixe surtout pas le padding : chaque jauge a le
+   sien, et une règle à deux classes l'emporterait sur une règle à une. */
+.jauge { display: flex; gap: 4px; }
+
+/* Les repères sous une jauge — « 1 gourde = 50 cl », « Objectif 2 L ».
+   Ils respirent, sinon ils se collent aux boîtes et le bloc devient dense. */
+.jauge-legende {
+  display: flex; justify-content: space-between;
+  margin-top: 10px; font-family: var(--sans); font-size: 0.68rem; color: #9a9284;
+}
+.jauge button { border: 1px solid var(--line); background: #fdfcf9; cursor: pointer; font-family: var(--sans); }
+.jauge button:active { transform: scale(0.94); }
+
+/* Douleur : dix crans numérotés, qui prennent la couleur du niveau.
+   Des crans bas et arrondis plutôt que des ronds pleins — dix cercles
+   côte à côte alourdissent la carte. */
+.cran {
+  flex: 1; height: 24px; padding: 0; border-radius: 6px;
+  font-size: 0.6rem; font-weight: 600; color: #b0a89a;
+  transition: background 0.12s ease;
+}
+.cran.allume { color: white; }
+
+/* Eau : quatre gourdes de 50 cl. Large respiration autour du dessin,
+   qui va d'un bord à l'autre de son viewBox. */
+.jauge-eau { gap: 10px; }
+.gourde {
+  flex: 1; border-radius: 10px; padding: 14px 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #ded9cc;                     /* gourde vide */
+}
+.gourde svg { width: 19px; height: 32px; fill: currentColor; display: block; }
+.gourde.allume { color: var(--bleu); background: #eef2f7; border-color: var(--bleu); }
 
 button.add { padding: 12px 16px; background: var(--sage-deep); color: white; border: none; border-radius: 8px; font-family: var(--sans); font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap; min-height: 44px; }
 button.add:disabled { opacity: 0.5; cursor: default; }
@@ -205,10 +235,10 @@ body.mode-lecture .ecriture { display: none !important; }
    mais deviennent inertes : le lecteur voit les valeurs sans y toucher. */
 body.mode-lecture .today-btn,
 body.mode-lecture .switch,
-body.mode-lecture input[type="range"] {
+body.mode-lecture .jauge {
   pointer-events: none;
 }
-body.mode-lecture input[type="range"] { opacity: 0.75; }
+body.mode-lecture .jauge { opacity: 0.75; }
 body.mode-lecture input[type="text"] {
   background: #f4f2ec;
   color: #6b6459;
