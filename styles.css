@@ -341,12 +341,15 @@ body.mode-lecture input[type="text"] {
 .bilan-bonus > summary {
   display: flex; justify-content: space-between; align-items: center;
   padding: 8px 0; font-family: var(--sans); font-size: 0.82rem;
-  cursor: pointer; list-style: none; color: var(--cuivre);
+  cursor: pointer; list-style: none;
 }
 .bilan-bonus > summary::-webkit-details-marker { display: none; }
+/* La flèche se pose après le libellé, jamais après le nombre : à droite,
+   ce doit être un chiffre seul, calé exactement comme ceux des lignes
+   au-dessus. Une flèche de ce côté-là décalerait toute la colonne. */
+.bilan-bonus > summary .titre::after { content: ' ▾'; font-size: 0.68rem; color: #9a9284; }
+.bilan-bonus[open] > summary .titre::after { content: ' ▴'; }
 .bilan-bonus > summary .compte { font-weight: 700; font-size: 0.95rem; }
-.bilan-bonus > summary .compte::after { content: ' ▾'; font-weight: 400; font-size: 0.7rem; }
-.bilan-bonus[open] > summary .compte::after { content: ' ▴'; }
 .bilan-bonus-sport {
   padding: 6px 0 6px 14px; font-family: var(--sans); font-size: 0.78rem;
   border-top: 1px solid #f0ede4;

@@ -1411,7 +1411,7 @@ function ligneBonus(bilan) {
   return `
     <details class="bilan-bonus">
       <summary>
-        <span>⭐ Sport bonus</span>
+        <span class="titre">⭐ Sport bonus</span>
         <span class="compte">${bilan.nbBonus}</span>
       </summary>
       ${detail}
