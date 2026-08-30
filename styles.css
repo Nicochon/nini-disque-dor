@@ -155,6 +155,22 @@ button.add:disabled { opacity: 0.5; cursor: default; }
 .empty-msg { text-align: center; padding: 20px; color: #9a9284; font-family: var(--sans); font-size: 0.82rem; }
 textarea { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; font-family: monospace; font-size: 0.72rem; background: #fdfcf9; }
 
+/* --- Poids : la perte depuis la première pesée --- */
+/* Le chiffre le plus consulté de la carte : il passe donc avant le
+   formulaire, et il est le seul à être gros. */
+.resume-poids {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 12px 14px; margin-bottom: 14px;
+  border: 1px solid var(--line); border-radius: 10px; background: #fdfcf9;
+  font-family: var(--sans);
+}
+.resume-poids .libelle { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--sage-deep); }
+.resume-poids .detail { font-size: 0.75rem; color: #6b6459; margin-top: 3px; }
+.resume-poids .chiffre { font-size: 1.35rem; font-weight: 700; white-space: nowrap; }
+/* Une perte est une bonne nouvelle : elle seule prend la couleur. */
+.resume-poids.mieux { background: linear-gradient(180deg, #f3f8f4, #e9f1eb); border-color: var(--sage); }
+.resume-poids.mieux .chiffre { color: var(--sage-deep); }
+
 /* --- Listes de perfs --- */
 .perf-entry { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0ede4; font-family: var(--sans); font-size: 0.82rem; }
 .perf-entry:last-child { border-bottom: none; }

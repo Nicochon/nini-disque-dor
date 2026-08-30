@@ -187,6 +187,7 @@ function toutAfficher() {
   afficherCalendrier();
   afficherAujourdhui();
   afficherBadges();
+  afficherResumePoids();
   afficherCourbePoids();
   afficherListePoids();
   afficherListeRameur();
@@ -666,10 +667,45 @@ document.getElementById('btnAjouterPoids').addEventListener('click', async () =>
   donnees.poids.sort((a, b) => a.date.localeCompare(b.date));
 
   document.getElementById('champPoids').value = '';
+  afficherResumePoids();
   afficherCourbePoids();
   afficherListePoids();
   afficherBadges();
 });
+
+/* Le chiffre qui compte vraiment : ce qui a été perdu depuis la première
+   pesée. La courbe montre le chemin, ce bandeau montre l'arrivée.
+
+   On compare la première pesée enregistrée à la dernière, et non à un
+   poids de départ écrit en dur : le jour où tu corriges une vieille
+   pesée, le total suit tout seul. */
+function afficherResumePoids() {
+  const zone = document.getElementById('resumePoids');
+  const points = [...donnees.poids]
+    .filter(entree => entree.weight !== null)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // Une seule pesée ne dit rien d'une évolution : on n'affiche rien.
+  if (points.length < 2) { zone.innerHTML = ''; return; }
+
+  const depart = Number(points[0].weight);
+  const actuel = Number(points[points.length - 1].weight);
+  const ecart = actuel - depart;
+  const enBaisse = ecart < 0;
+
+  const chiffre = (Math.abs(ecart) < 0.05)
+    ? 'stable'
+    : `${enBaisse ? '−' : '+'}${Math.abs(ecart).toFixed(1).replace('.', ',')} kg`;
+
+  zone.innerHTML = `
+    <div class="resume-poids${enBaisse ? ' mieux' : ''}">
+      <div>
+        <div class="libelle">Depuis la première pesée</div>
+        <div class="detail">${depart.toFixed(1).replace('.', ',')} → ${actuel.toFixed(1).replace('.', ',')} kg · depuis le ${dateCourte(points[0].date)}</div>
+      </div>
+      <div class="chiffre">${chiffre}</div>
+    </div>`;
+}
 
 function afficherCourbePoids() {
   const zone = document.getElementById('zoneCourbePoids');
@@ -1003,6 +1039,7 @@ document.addEventListener('click', async evenement => {
     const ok = await executer(() => bdd.from('weights').delete().eq('date', date), 'Pesée supprimée');
     if (!ok) return;
     donnees.poids = donnees.poids.filter(entree => entree.date !== date);
+    afficherResumePoids();
     afficherCourbePoids();
     afficherListePoids();
     afficherBadges();
