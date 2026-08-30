@@ -13,6 +13,7 @@
   --gold: #c9a227;
   --bleu: #5b7fa6;
   --lavande: #8b7aa8;
+  --cuivre: #b07d3f;
   --line: #d8d3c4;
   --card: #ffffff;
   --sans: -apple-system, system-ui, sans-serif;
@@ -66,10 +67,13 @@ h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01
 .cal-day.today { border-color: var(--sage-deep); border-width: 2px; }
 .cal-day.selectionne { background: #eef3ef; border-color: var(--sage); }
 .cal-day .num { font-weight: 600; }
-/* Six pastilles sur une seule ligne les condamnaient à 4 px. Sur deux
-   rangées de trois, elles tiennent en 27 px de large et passent à 7 px :
-   presque le double de diamètre, à largeur de case inchangée. */
-.dots { display: grid; grid-template-columns: repeat(3, 7px); gap: 3px; margin-top: 1px; justify-content: center; }
+/* Sept pastilles sur deux rangées de quatre : 37 px de large pour une case
+   qui en fait 46. La seconde rangée n'en porte que trois, centrées pour
+   que la case ne penche pas d'un côté. */
+/* 37 px, c'est exactement quatre pastilles de 7 et trois écarts de 3.
+   Les trois suivantes passent donc à la ligne d'elles-mêmes, et
+   justify-content les centre — la case ne penche d'aucun côté. */
+.dots { display: flex; flex-wrap: wrap; gap: 3px; width: 37px; margin-top: 1px; justify-content: center; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: #f0ede4; }
 .dot.on.kine_renfo { background: var(--sage); }
 .dot.on.kine_mobilite { background: var(--lavande); }
@@ -77,6 +81,7 @@ h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01
 .dot.on.kine_seance { background: var(--sage-deep); }
 .dot.on.regime { background: var(--clay); }
 .dot.on.velo { background: var(--bleu); }
+.dot.on.bonus { background: var(--cuivre); }
 .pain-bar { position: absolute; bottom: 2px; left: 4px; right: 4px; height: 3px; border-radius: 2px; }
 
 .today-btn { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 12px 4px; border-radius: 10px; border: 1px solid var(--line); background: #fdfcf9; font-family: var(--sans); cursor: pointer; transition: all 0.15s ease; min-height: 76px; justify-content: center; }
@@ -329,6 +334,25 @@ body.mode-lecture input[type="text"] {
 }
 .bilan-ligne:last-child { border-bottom: none; }
 .bilan-ligne .compte { font-weight: 700; font-size: 0.95rem; }
+
+/* La ligne « Sport bonus » : même allure que les autres, mais dépliable.
+   Le calendrier ne montre qu'une pastille pour tous les sports bonus ;
+   c'est ici qu'on lit lesquels et à quelles dates. */
+.bilan-bonus > summary {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; font-family: var(--sans); font-size: 0.82rem;
+  cursor: pointer; list-style: none; color: var(--cuivre);
+}
+.bilan-bonus > summary::-webkit-details-marker { display: none; }
+.bilan-bonus > summary .compte { font-weight: 700; font-size: 0.95rem; }
+.bilan-bonus > summary .compte::after { content: ' ▾'; font-weight: 400; font-size: 0.7rem; }
+.bilan-bonus[open] > summary .compte::after { content: ' ▴'; }
+.bilan-bonus-sport {
+  padding: 6px 0 6px 14px; font-family: var(--sans); font-size: 0.78rem;
+  border-top: 1px solid #f0ede4;
+}
+.bilan-bonus-sport .nom { display: block; font-weight: 600; }
+.bilan-bonus-sport .quand { display: block; color: #9a9284; font-size: 0.72rem; margin-top: 2px; }
 .bilan-titre-tuile {
   font-family: var(--sans);
   font-size: 0.7rem;

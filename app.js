@@ -29,7 +29,8 @@ let donnees = {
   jours: {},    // { "2026-08-17": {kine_renfo, kine_mobilite, sport, kine_seance, regime, velo, douleur, douleur_note, eau} }
   poids: [],    // [{ id, date, weight }]
   rameur: [],   // [{ id, date, temps }]
-  tapis: []     // [{ id, date, duree, vitesse, inclinaison }]
+  tapis: [],    // [{ id, date, duree, vitesse, inclinaison }]
+  bonus: []     // [{ id, date, activite }] — le sport fait EN PLUS du minimum
 };
 
 // Les exercices kiné se font en deux temps : le renforcement et la mobilité.
@@ -151,14 +152,15 @@ async function executer(action, messageSucces) {
 async function chargerDonnees() {
   afficherStatut('Chargement…', 'chargement');
   try {
-    const [resJours, resPoids, resRameur, resTapis] = await Promise.all([
+    const [resJours, resPoids, resRameur, resTapis, resBonus] = await Promise.all([
       bdd.from('days').select('*'),
       bdd.from('weights').select('*').order('date', { ascending: true }),
       bdd.from('rameur').select('*').order('date', { ascending: false }),
-      bdd.from('tapis').select('*').order('date', { ascending: false })
+      bdd.from('tapis').select('*').order('date', { ascending: false }),
+      bdd.from('bonus').select('*').order('date', { ascending: false })
     ]);
 
-    const erreur = resJours.error || resPoids.error || resRameur.error || resTapis.error;
+    const erreur = resJours.error || resPoids.error || resRameur.error || resTapis.error || resBonus.error;
     if (erreur) {
       afficherStatut('Erreur de chargement : ' + erreur.message, 'erreur');
       return false;
@@ -169,6 +171,7 @@ async function chargerDonnees() {
     donnees.poids  = resPoids.data  || [];
     donnees.rameur = resRameur.data || [];
     donnees.tapis  = resTapis.data  || [];
+    donnees.bonus  = resBonus.data  || [];
 
     masquerStatut();
     return true;
@@ -188,6 +191,8 @@ function toutAfficher() {
   afficherListePoids();
   afficherListeRameur();
   afficherListeTapis();
+  afficherGrilleBonus();
+  afficherBonusDuJour();
   afficherBilan();
 }
 
@@ -351,6 +356,7 @@ function afficherCalendrier() {
 
   const nbJoursDansMois = new Date(annee, mois + 1, 0).getDate();
   const cleAujourdhui = aujourdhui();
+  const joursAvecBonus = datesAvecBonus();   // calculé une fois pour tout le mois
 
   for (let numero = 1; numero <= nbJoursDansMois; numero++) {
     const dateObjet = new Date(annee, mois, numero);
@@ -358,8 +364,10 @@ function afficherCalendrier() {
     const jour = donnees.jours[cle] || {};
 
     // Une journée où au moins une case est cochée se teinte : c'est ce qui
-    // doit sauter aux yeux quand on ouvre le calendrier.
-    const aTenu = ACTIVITES.some(activite => jour[activite]);
+    // doit sauter aux yeux quand on ouvre le calendrier. Un sport bonus
+    // compte tout autant — c'est une séance de plus.
+    const bonusCeJour = joursAvecBonus.has(cle);
+    const aTenu = bonusCeJour || ACTIVITES.some(activite => jour[activite]);
 
     const case_ = document.createElement('div');
     case_.className = 'cal-day'
@@ -379,9 +387,14 @@ function afficherCalendrier() {
     const drapeau = (cle === DATE_DEBUT)
       ? '<span style="position:absolute;top:1px;right:2px;font-size:0.55rem;">🚩</span>' : '';
 
+    /* Six pastilles issues de la boucle, puis une septième ajoutée à part :
+       le bonus ne vit pas dans la ligne du jour mais dans sa propre table,
+       il n'a donc pas de colonne à lire ici. Une seule pastille pour tous
+       les sports bonus — le détail se lit dans le Bilan. */
     const pastilles = ACTIVITES
       .map(cleActivite => `<span class="dot ${jour[cleActivite] ? 'on ' + cleActivite : ''}"></span>`)
-      .join('');
+      .join('')
+      + `<span class="dot ${bonusCeJour ? 'on bonus' : ''}"></span>`;
 
     case_.innerHTML = `${drapeau}<span class="num">${numero}</span><div class="dots">${pastilles}</div>${barreDouleur}`;
     case_.addEventListener('click', () => ouvrirPanneauJour(cle));
@@ -850,7 +863,108 @@ function afficherListeTapis() {
 
 
 /* ============================================================
-   13. SUPPRESSION D'UNE LIGNE
+   13. SPORT BONUS
+   ============================================================
+   Le minimum hebdomadaire vit dans la table "days", une colonne par
+   activité. Le bonus, lui, a sa propre table : une ligne par séance
+   faite. C'est cette forme — et elle seule — qui permet d'en noter
+   plusieurs le même jour et de répondre à « combien de foot ce mois-ci ».
+
+   La liste ci-dessous ne sert qu'à dessiner les boutons. La table, elle,
+   accepte n'importe quel libellé : « Autre » enregistre ce que tu tapes,
+   et ajouter un sport ici ne demandera jamais de migration.
+   ------------------------------------------------------------ */
+
+const SPORTS_BONUS = [
+  { cle: 'foot',        icone: '⚽',  libelle: 'Foot' },
+  { cle: 'basket',      icone: '🏀', libelle: 'Basket' },
+  { cle: 'rando',       icone: '🥾', libelle: 'Rando' },
+  { cle: 'salle libre', icone: '🏃', libelle: 'Salle<br>libre' },
+  { cle: 'vélo',        icone: '🚴', libelle: 'Vélo' },
+  { cle: 'autre',       icone: '➕', libelle: 'Autre' }
+];
+
+/* Une seule écriture par sport : « Escalade », « escalade » et
+   « ESCALADE  » doivent compter ensemble dans le Bilan. */
+function normaliserBonus(texte) {
+  return texte.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function libelleBonus(activite) {
+  return activite.charAt(0).toUpperCase() + activite.slice(1);
+}
+
+// Les dates ayant au moins un bonus — le calendrier s'en sert pour sa
+// septième pastille, et pour teinter la journée comme les autres.
+function datesAvecBonus() {
+  return new Set(donnees.bonus.map(entree => entree.date));
+}
+
+function afficherGrilleBonus() {
+  document.getElementById('grilleBonus').innerHTML = SPORTS_BONUS.map(sport => `
+    <div class="today-btn" data-bonus="${sport.cle}">
+      <span class="icon">${sport.icone}</span>
+      <span class="label">${sport.libelle}</span>
+    </div>`).join('');
+}
+
+function afficherBonusDuJour() {
+  const zone = document.getElementById('listeBonusDuJour');
+  const duJour = donnees.bonus.filter(entree => entree.date === aujourdhui());
+
+  if (duJour.length === 0) {
+    zone.innerHTML = '<div class="empty-msg">Rien en plus aujourd\'hui.</div>';
+    return;
+  }
+  // La liste du jour rend une fausse manœuvre visible et réparable.
+  zone.innerHTML = duJour.map(entree => `
+    <div class="perf-entry">
+      <span class="perf-val">⭐ ${libelleBonus(entree.activite)}</span>
+      <button class="btn-suppr ecriture" data-table="bonus" data-id="${entree.id}">✕</button>
+    </div>`).join('');
+}
+
+async function ajouterBonus(activiteBrute) {
+  if (verrouille()) return;
+  const activite = normaliserBonus(activiteBrute);
+  if (!activite) { afficherStatut('Écris le nom du sport', 'erreur'); return; }
+
+  const { data, error } = await bdd.from('bonus')
+    .insert({ date: aujourdhui(), activite: activite }).select();
+  if (error) { afficherStatut('Erreur : ' + error.message, 'erreur'); return; }
+
+  donnees.bonus.push(data[0]);
+  afficherStatut(`${libelleBonus(activite)} ajouté ✓`, 'ok');
+  afficherBonusDuJour();
+  afficherCalendrier();
+  afficherBilan();
+}
+
+// Les boutons. « Autre » n'enregistre rien : il ouvre le champ de saisie.
+document.getElementById('grilleBonus').addEventListener('click', evenement => {
+  const bouton = evenement.target.closest('[data-bonus]');
+  if (!bouton) return;
+
+  const zoneAutre = document.getElementById('zoneBonusAutre');
+  if (bouton.dataset.bonus === 'autre') {
+    zoneAutre.style.display = 'block';
+    document.getElementById('champBonusAutre').focus();
+    return;
+  }
+  zoneAutre.style.display = 'none';
+  ajouterBonus(bouton.dataset.bonus);
+});
+
+document.getElementById('btnBonusAutre').addEventListener('click', async () => {
+  const champ = document.getElementById('champBonusAutre');
+  await ajouterBonus(champ.value);
+  champ.value = '';
+  document.getElementById('zoneBonusAutre').style.display = 'none';
+});
+
+
+/* ============================================================
+   14. SUPPRESSION D'UNE LIGNE
    ============================================================
    Confirmation en deux temps : le premier appui transforme le bouton en
    "Supprimer ?", le second supprime vraiment. Ça évite la fenêtre de
@@ -900,6 +1014,11 @@ document.addEventListener('click', async evenement => {
       donnees.rameur = donnees.rameur.filter(entree => entree.id !== id);
       afficherListeRameur();
       afficherBadges();
+    } else if (table === 'bonus') {
+      donnees.bonus = donnees.bonus.filter(entree => entree.id !== id);
+      afficherBonusDuJour();
+      afficherCalendrier();
+      afficherBilan();
     } else {
       donnees.tapis = donnees.tapis.filter(entree => entree.id !== id);
       afficherListeTapis();
@@ -909,7 +1028,7 @@ document.addEventListener('click', async evenement => {
 
 
 /* ============================================================
-   14. SAUVEGARDE : EXPORT ET IMPORT JSON
+   15. SAUVEGARDE : EXPORT ET IMPORT JSON
    ============================================================
    Les dates sont écrites en jj/mm/aaaa dans l'export (plus lisible) et
    reconverties en aaaa-mm-jj à l'import.
@@ -1047,7 +1166,7 @@ document.getElementById('btnRestaurer').addEventListener('click', async () => {
 
 
 /* ============================================================
-   15. BILAN — statistiques par semaine ou par mois
+   16. BILAN — statistiques par semaine ou par mois
    ============================================================
    Tout est recalculé à partir de donnees.jours et donnees.poids, déjà
    chargés en mémoire : aucune requête supplémentaire.
@@ -1138,6 +1257,19 @@ function calculerBilan(cleDebut, cleFin) {
     seances[activite] = joursConnus.filter(jour => jour[activite]).length;
   });
 
+  /* --- Sport bonus ---
+     Regroupé par sport, avec les dates : le calendrier dit qu'il y a eu
+     quelque chose en plus, c'est ici qu'on lit quoi et quand. */
+  const bonusPeriode = donnees.bonus
+    .filter(entree => entree.date >= cleDebut && entree.date <= finReelle)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const bonusParSport = {};
+  bonusPeriode.forEach(entree => {
+    if (!bonusParSport[entree.activite]) bonusParSport[entree.activite] = [];
+    bonusParSport[entree.activite].push(entree.date);
+  });
+
   // --- Douleur ---
   // Tous les jours de la période comptent, ceux sans saisie valant 0.
   const releves = cles.map(cle => ({ cle: cle, valeur: douleurDuJour(cle) }));
@@ -1208,9 +1340,13 @@ function calculerBilan(cleDebut, cleFin) {
     periodeEnCours: cleFin > cleAujourdhui,
     aDesDonnees: joursConnus.length > 0 || arrivee !== null,
     seances: seances,
-    // Les cinq séances physiques. La séance chez le kiné en fait partie :
-    // c'est un vrai travail, et une cause fréquente de douleur.
-    totalSportif: seances.kine_renfo + seances.kine_mobilite + seances.sport + seances.velo + seances.kine_seance,
+    bonus: bonusParSport,
+    nbBonus: bonusPeriode.length,
+    /* Les séances physiques. La séance chez le kiné en fait partie : c'est
+       un vrai travail, et une cause fréquente de douleur. Le sport bonus
+       aussi — c'est une séance de plus, pas un doublon du minimum. */
+    totalSportif: seances.kine_renfo + seances.kine_mobilite + seances.sport
+                + seances.velo + seances.kine_seance + bonusPeriode.length,
     notes: notes,
     regime: joursConnus.filter(jour => jour.regime).length,
     douleur: douleur,
@@ -1254,6 +1390,34 @@ function tendance(ecart, baisseEstBonne, suffixe) {
    écrans de notes, qui repousseraient les statistiques hors de vue.
    On utilise <details>, replié par défaut — aucun JavaScript nécessaire,
    et le navigateur gère l'ouverture. */
+/* La ligne « Sport bonus » du Bilan. Repliée, elle ne montre que le
+   total ; dépliée, elle dit quel sport et quand — c'est la contrepartie
+   de la pastille unique du calendrier, qui ne peut pas porter le détail.
+
+   Comme pour les notes, c'est une balise <details> : le navigateur gère
+   l'ouverture, aucun JavaScript n'est nécessaire. */
+function ligneBonus(bilan) {
+  if (bilan.nbBonus === 0) return '';
+
+  const sports = Object.keys(bilan.bonus).sort((a, b) =>
+    bilan.bonus[b].length - bilan.bonus[a].length || a.localeCompare(b));
+
+  const detail = sports.map(sport => `
+    <div class="bilan-bonus-sport">
+      <span class="nom">${libelleBonus(sport)} · ${bilan.bonus[sport].length}</span>
+      <span class="quand">${bilan.bonus[sport].map(dateCourte).join(' · ')}</span>
+    </div>`).join('');
+
+  return `
+    <details class="bilan-bonus">
+      <summary>
+        <span>⭐ Sport bonus</span>
+        <span class="compte">${bilan.nbBonus}</span>
+      </summary>
+      ${detail}
+    </details>`;
+}
+
 const SEUIL_NOTES_REPLIEES = 6;
 
 function listeNotes(notes) {
@@ -1309,7 +1473,8 @@ function afficherBilan() {
     <div class="bilan-ligne">
       <span>${nomsActivites[cle]}</span>
       <span class="compte">${bilan.seances[cle]}</span>
-    </div>`).join('');
+    </div>`).join('')
+    + ligneBonus(bilan);
 
   // --- Douleur ---
   const detailDouleur = bilan.douleur.joursNotes === 0
@@ -1418,7 +1583,7 @@ document.querySelectorAll('.bilan-onglet').forEach(onglet => {
 
 
 /* ============================================================
-   16. ONGLETS
+   17. ONGLETS
    ============================================================
    Cinq sections dans la page, une seule visible à la fois. L'onglet
    ouvert est inscrit dans l'adresse (#bilan) : un rechargement rouvre
@@ -1459,7 +1624,7 @@ activerVue(location.hash.slice(1));
 
 
 /* ============================================================
-   17. DÉMARRAGE DE L'APPLICATION
+   18. DÉMARRAGE DE L'APPLICATION
    ============================================================
    Appelé une fois la session ouverte — soit par compte.js après une
    connexion réussie, soit par le bloc d'initialisation en fin de fichier
@@ -1490,7 +1655,7 @@ async function demarrerAppli() {
 }
 
 /* ============================================================
-   18. OUVERTURE DE LA SESSION
+   19. OUVERTURE DE LA SESSION
    ============================================================
    Supabase garde la session dans le navigateur : tant qu'elle est valide,
    on entre directement dans l'application sans repasser par la connexion.

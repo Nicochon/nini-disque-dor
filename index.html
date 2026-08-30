@@ -72,6 +72,7 @@
       <span><span class="sw" style="background:var(--sage-deep)"></span>Séance kiné</span>
       <span><span class="sw" style="background:var(--clay)"></span>Régime</span>
       <span><span class="sw" style="background:var(--bleu)"></span>Vélo</span>
+      <span><span class="sw" style="background:var(--cuivre)"></span>Sport bonus</span>
       <span><span class="sw" style="background:linear-gradient(90deg,#6b8f7c,#c9a227,#b5654a); width:16px; border-radius:3px;"></span>Douleur dos (barre du bas)</span>
     </div>
 
@@ -186,6 +187,28 @@
        ONGLET « SÉANCES » — ce qu'on fait, puis ce qu'on y a mesuré
        ============================================================ -->
   <section class="vue" id="vue-seances">
+
+  <!-- ---------- Sport bonus ---------- -->
+  <!-- Ce qui est fait EN PLUS du minimum hebdomadaire. Un appui enregistre
+       la séance du jour ; le détail se relit dans le Bilan. -->
+  <div class="card">
+    <h2>Sport bonus</h2>
+    <div style="font-family:var(--sans); font-size:0.8rem; color:#6b6459; margin-bottom:12px; line-height:1.5;">
+      Ce que tu as fait en plus aujourd'hui. Un appui = une séance.
+    </div>
+    <div id="grilleBonus" class="ecriture" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;"></div>
+
+    <!-- N'apparaît qu'après un appui sur « Autre ». -->
+    <div id="zoneBonusAutre" class="ecriture" style="display:none; margin-top:10px;">
+      <label for="champBonusAutre">Quel sport ?</label>
+      <div class="row2">
+        <input type="text" id="champBonusAutre" placeholder="escalade, natation...">
+        <button class="add" id="btnBonusAutre">Ajouter</button>
+      </div>
+    </div>
+
+    <div id="listeBonusDuJour" style="margin-top:12px;"></div>
+  </div>
 
   <!-- ---------- Routines (texte statique) ---------- -->
   <div class="card">

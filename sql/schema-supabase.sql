@@ -82,9 +82,26 @@ create table if not exists tapis (
   inclinaison  numeric check (inclinaison >= 0) -- %
 );
 
+-- Sport bonus : ce qui est fait EN PLUS du minimum hebdomadaire — foot,
+-- basket, rando… Une ligne par activité pratiquée, et non une colonne par
+-- sport dans "days" : c'est la seule forme qui permette de compter
+-- « foot 3 fois ce mois-ci », d'en noter plusieurs le même jour, et
+-- d'ajouter un sport sans jamais toucher au schéma.
+--
+-- Pas de contrainte sur "activite" : le bouton « Autre » laisse écrire
+-- n'importe quel sport, et une liste figée ici obligerait à migrer la
+-- base à chaque nouveauté. L'application normalise la casse avant
+-- d'enregistrer, pour qu'« Escalade » et « escalade » ne fassent qu'un.
+create table if not exists bonus (
+  id        uuid primary key default gen_random_uuid(),
+  date      date not null,
+  activite  text not null
+);
+
 -- Index pour les listes triées par date décroissante.
 create index if not exists idx_rameur_date on rameur (date desc);
 create index if not exists idx_tapis_date  on tapis  (date desc);
+create index if not exists idx_bonus_date  on bonus  (date desc);
 
 
 -- ------------------------------------------------------------
@@ -163,8 +180,8 @@ grant execute on function public.est_proprietaire() to authenticated;
 -- On coupe donc tout accès au rôle "anon" (visiteur non connecté) :
 -- sans être authentifié, on ne peut rien lire ni écrire.
 
-revoke all on days, weights, rameur, tapis, acces from anon;
-grant select, insert, update, delete on days, weights, rameur, tapis to authenticated;
+revoke all on days, weights, rameur, tapis, bonus, acces from anon;
+grant select, insert, update, delete on days, weights, rameur, tapis, bonus to authenticated;
 grant select, insert, update, delete on acces to authenticated;
 
 
@@ -179,6 +196,7 @@ alter table days    enable row level security;
 alter table weights enable row level security;
 alter table rameur  enable row level security;
 alter table tapis   enable row level security;
+alter table bonus   enable row level security;
 alter table acces   enable row level security;
 
 -- On supprime les policies existantes avant de les recréer,
@@ -204,12 +222,17 @@ drop policy if exists lecture       on tapis;
 drop policy if exists ecriture_ajout on tapis;
 drop policy if exists ecriture_maj   on tapis;
 drop policy if exists ecriture_suppr on tapis;
+drop policy if exists lecture       on bonus;
+drop policy if exists ecriture_ajout on bonus;
+drop policy if exists ecriture_maj   on bonus;
+drop policy if exists ecriture_suppr on bonus;
 
 -- Lecture : ouverte à tout compte listé dans "acces" (propriétaire ou lecteur).
 create policy lecture on days    for select to authenticated using (a_acces());
 create policy lecture on weights for select to authenticated using (a_acces());
 create policy lecture on rameur  for select to authenticated using (a_acces());
 create policy lecture on tapis   for select to authenticated using (a_acces());
+create policy lecture on bonus   for select to authenticated using (a_acces());
 
 -- Écriture : réservée au propriétaire. Trois policies distinctes, car
 -- insert, update et delete se déclarent séparément.
@@ -228,6 +251,10 @@ create policy ecriture_suppr on rameur  for delete to authenticated using (est_p
 create policy ecriture_ajout on tapis   for insert to authenticated with check (est_proprietaire());
 create policy ecriture_maj   on tapis   for update to authenticated using (est_proprietaire()) with check (est_proprietaire());
 create policy ecriture_suppr on tapis   for delete to authenticated using (est_proprietaire());
+
+create policy ecriture_ajout on bonus   for insert to authenticated with check (est_proprietaire());
+create policy ecriture_maj   on bonus   for update to authenticated using (est_proprietaire()) with check (est_proprietaire());
+create policy ecriture_suppr on bonus   for delete to authenticated using (est_proprietaire());
 
 -- La table "acces" elle-même : chacun lit sa propre ligne (l'application
 -- s'en sert pour savoir dans quel mode se placer), et seul le propriétaire
