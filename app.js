@@ -346,22 +346,32 @@ function afficherCalendrier() {
     grille.appendChild(entete);
   });
 
-  // getDay() renvoie 0 pour dimanche : on décale pour commencer le lundi.
-  let decalage = new Date(annee, mois, 1).getDay() - 1;
+  /* La grille court du lundi de la semaine du 1er au dimanche de la
+     semaine du dernier jour. Les cases qui dépassent sont remplies par
+     les mois voisins plutôt que laissées vides : une première ligne à
+     deux cases et une dernière à une seule donnaient une grille bancale.
+     getDay() renvoie 0 le dimanche, d'où les décalages. */
+  const premier = new Date(annee, mois, 1);
+  let decalage = premier.getDay() - 1;
   if (decalage < 0) decalage = 6;
-  for (let i = 0; i < decalage; i++) {
-    const vide = document.createElement('div');
-    vide.className = 'cal-day empty';
-    grille.appendChild(vide);
-  }
 
-  const nbJoursDansMois = new Date(annee, mois + 1, 0).getDate();
+  const dernier = new Date(annee, mois + 1, 0);
+  const finSemaine = dernier.getDay() === 0 ? 0 : 7 - dernier.getDay();
+
+  const debutGrille = new Date(annee, mois, 1 - decalage);
+  const finGrille = new Date(annee, mois + 1, finSemaine);
+
   const cleAujourdhui = aujourdhui();
-  const joursAvecBonus = datesAvecBonus();   // calculé une fois pour tout le mois
+  const joursAvecBonus = datesAvecBonus();   // calculé une fois pour toute la grille
 
-  for (let numero = 1; numero <= nbJoursDansMois; numero++) {
-    const dateObjet = new Date(annee, mois, numero);
+  const curseur = new Date(debutGrille);
+  while (curseur <= finGrille) {
+    const dateObjet = new Date(curseur);     // figée : le curseur, lui, avance
+    curseur.setDate(curseur.getDate() + 1);
+
     const cle = cleDate(dateObjet);
+    const numero = dateObjet.getDate();
+    const horsMois = dateObjet.getMonth() !== mois;
     const jour = donnees.jours[cle] || {};
 
     // Une journée où au moins une case est cochée se teinte : c'est ce qui
@@ -372,6 +382,7 @@ function afficherCalendrier() {
 
     const case_ = document.createElement('div');
     case_.className = 'cal-day'
+      + (horsMois ? ' hors-mois' : '')
       + (aTenu ? ' rempli' : '')
       + (cle === cleAujourdhui ? ' today' : '')
       + (cle === jourSelectionne ? ' selectionne' : '');
@@ -398,7 +409,12 @@ function afficherCalendrier() {
       + `<span class="dot ${bonusCeJour ? 'on bonus' : ''}"></span>`;
 
     case_.innerHTML = `${drapeau}<span class="num">${numero}</span><div class="dots">${pastilles}</div>${barreDouleur}`;
-    case_.addEventListener('click', () => ouvrirPanneauJour(cle));
+    // Cliquer un jour voisin bascule d'abord sur son mois : sélectionner
+    // une case qu'on ne verrait plus n'aurait aucun sens.
+    case_.addEventListener('click', () => {
+      if (horsMois) moisAffiche = new Date(dateObjet.getFullYear(), dateObjet.getMonth(), 1);
+      ouvrirPanneauJour(cle);
+    });
     grille.appendChild(case_);
   }
 }

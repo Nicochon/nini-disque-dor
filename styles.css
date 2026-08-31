@@ -59,7 +59,10 @@ h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin: 0 -12px; font-family: var(--sans); }
 .cal-dow { text-align: center; font-size: 0.65rem; color: #9a9284; padding-bottom: 4px; }
 .cal-day { position: relative; aspect-ratio: 1; border-radius: 7px; border: 1px solid var(--line); background: #fdfcf9; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-size: 0.8rem; }
-.cal-day.empty { border: none; background: none; cursor: default; }
+/* Les jours des mois voisins, qui complètent la première et la dernière
+   semaine. Ils gardent leurs pastilles — la donnée reste vraie — mais
+   s'effacent pour qu'on lise le mois affiché sans hésiter. */
+.cal-day.hors-mois { opacity: 0.42; }
 /* Une journée où quelque chose a été coché se teinte de vert pâle. De loin,
    le mois se lit alors comme une suite de jours tenus — c'est ce que le
    calendrier doit donner à voir en premier. */
