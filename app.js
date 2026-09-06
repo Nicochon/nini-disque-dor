@@ -18,7 +18,13 @@
    ------------------------------------------------------------ */
 
 const DATE_DEBUT = '2026-08-17';   // premier jour du suivi
-const RECORD_RAMEUR_INITIAL = '4:06'; // record à battre sur 1000 m
+/* Les paliers d'allure au 1000 m qui donnent un badge, du plus accessible
+   au plus dur : de dix en dix secondes jusqu'à 4:00, puis de cinq en cinq,
+   parce qu'en dessous chaque seconde se paie plus cher.
+
+   Le record lui-même n'est écrit nulle part dans le code : il se déduit de
+   la table rameur, qui en est la seule source. */
+const PALIERS_RAMEUR = ['4:20', '4:10', '4:00', '3:55', '3:50', '3:45', '3:40'];
 const OBJECTIF_EAU = 150;           // cl — soit trois gourdes de 50
 /* Le même objectif, écrit pour être lu : « 1,5 L ». On le dérive de la
    constante plutôt que de le recopier, pour qu'aucun libellé ne mente le
@@ -28,8 +34,7 @@ const OBJECTIF_EAU_TEXTE = (OBJECTIF_EAU / 100).toLocaleString('fr-FR') + ' L';
 let donnees = {
   jours: {},    // { "2026-08-17": {kine_renfo, kine_mobilite, sport, kine_seance, regime, velo, douleur, douleur_note, eau} }
   poids: [],    // [{ id, date, weight }]
-  rameur: [],   // [{ id, date, temps }]
-  tapis: [],    // [{ id, date, duree, vitesse, inclinaison }]
+  rameur: [],   // [{ id, date, temps }] — uniquement les records battus
   bonus: []     // [{ id, date, activite }] — le sport fait EN PLUS du minimum
 };
 
@@ -152,15 +157,14 @@ async function executer(action, messageSucces) {
 async function chargerDonnees() {
   afficherStatut('Chargement…', 'chargement');
   try {
-    const [resJours, resPoids, resRameur, resTapis, resBonus] = await Promise.all([
+    const [resJours, resPoids, resRameur, resBonus] = await Promise.all([
       bdd.from('days').select('*'),
       bdd.from('weights').select('*').order('date', { ascending: true }),
       bdd.from('rameur').select('*').order('date', { ascending: false }),
-      bdd.from('tapis').select('*').order('date', { ascending: false }),
       bdd.from('bonus').select('*').order('date', { ascending: false })
     ]);
 
-    const erreur = resJours.error || resPoids.error || resRameur.error || resTapis.error || resBonus.error;
+    const erreur = resJours.error || resPoids.error || resRameur.error || resBonus.error;
     if (erreur) {
       afficherStatut('Erreur de chargement : ' + erreur.message, 'erreur');
       return false;
@@ -170,7 +174,6 @@ async function chargerDonnees() {
     (resJours.data || []).forEach(ligne => { donnees.jours[ligne.date] = ligne; });
     donnees.poids  = resPoids.data  || [];
     donnees.rameur = resRameur.data || [];
-    donnees.tapis  = resTapis.data  || [];
     donnees.bonus  = resBonus.data  || [];
 
     masquerStatut();
@@ -190,8 +193,7 @@ function toutAfficher() {
   afficherResumePoids();
   afficherCourbePoids();
   afficherListePoids();
-  afficherListeRameur();
-  afficherListeTapis();
+  afficherRameur();
   afficherGrilleBonus();
   afficherBonusDuJour();
   afficherBilan();
@@ -628,7 +630,13 @@ function calculerBadges() {
 
   const tempsRameur = donnees.rameur.map(entree => tempsEnSecondes(entree.temps)).filter(v => v !== null);
   const meilleurRameur = tempsRameur.length ? Math.min(...tempsRameur) : null;
-  const recordABattre = tempsEnSecondes(RECORD_RAMEUR_INITIAL);
+
+  // Une échelle d'allures au 1000 m, du plus accessible au plus dur.
+  const badgesRameur = PALIERS_RAMEUR.map(palier => ({
+    icone: '🚣',
+    libelle: `Rameur sous ${palier}`,
+    obtenu: meilleurRameur !== null && meilleurRameur < tempsEnSecondes(palier)
+  }));
 
   const auMoinsUnJourCoche = listeJours.some(auMoinsUneActivite);
 
@@ -645,7 +653,7 @@ function calculerBadges() {
     { icone: '⚖️', libelle: 'Sous les 90 kg',     obtenu: poidsMini !== null && poidsMini < 90 },
     { icone: '⚖️', libelle: 'Sous les 85 kg',     obtenu: poidsMini !== null && poidsMini < 85 },
     { icone: '🏆', libelle: 'Sous les 80 kg',     obtenu: poidsMini !== null && poidsMini < 80 },
-    { icone: '🚣', libelle: 'Record rameur battu', obtenu: meilleurRameur !== null && meilleurRameur < recordABattre }
+    ...badgesRameur
   ];
 }
 
@@ -791,7 +799,7 @@ function afficherListePoids() {
 
 
 /* ============================================================
-   12. RAMEUR ET TAPIS
+   12. RAMEUR — LE RECORD, ET LUI SEUL
    ============================================================ */
 
 /* Ramène une saisie libre au format "m:ss" attendu par la base.
@@ -826,92 +834,127 @@ function normaliserTempsRameur(saisie) {
   return Number(minutes) + ':' + secondes;
 }
 
+// L'inverse de tempsEnSecondes : 268 -> "4:28".
+function secondesVersTemps(secondes) {
+  const total = Math.round(secondes);
+  const minutes = Math.floor(total / 60);
+  return minutes + ':' + String(total % 60).padStart(2, '0');
+}
+
+/* La machine affiche une distance et une durée ; le record, lui, se compte
+   au 1000 m. On fait donc la division ici plutôt que de la lui demander
+   de tête — 2235 m en 10 min, c'est 4:28 au kilomètre.
+   Renvoie des secondes, ou null si la saisie ne veut rien dire. */
+function allureAu1000(distanceMetres, dureeMinutes) {
+  const distance = Number(distanceMetres);
+  const duree = Number(dureeMinutes);
+  if (!isFinite(distance) || !isFinite(duree) || distance <= 0 || duree <= 0) return null;
+  return (duree * 60) * 1000 / distance;
+}
+
+// La meilleure ligne enregistrée. À égalité, la plus ancienne : c'est
+// celle qui a établi le record.
+function meilleureLigneRameur() {
+  const valides = donnees.rameur.filter(entree => tempsEnSecondes(entree.temps) !== null);
+  if (valides.length === 0) return null;
+  return valides.sort((a, b) =>
+    tempsEnSecondes(a.temps) - tempsEnSecondes(b.temps) || a.date.localeCompare(b.date)
+  )[0];
+}
+
+/* Le record en évidence, et le reste en dessous. C'est la seule chose
+   qu'on vient chercher sur cette carte. */
+function afficherRameur() {
+  const record = meilleureLigneRameur();
+  const zoneRecord = document.getElementById('recordRameur');
+
+  zoneRecord.innerHTML = record
+    ? `<div class="record">
+         <div class="record-etiquette">Record</div>
+         <div class="record-temps">${record.temps}<span class="unite"> /1000 m</span></div>
+         <div class="record-date">établi le ${versDate(record.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+       </div>`
+    : `<div class="empty-msg">Pas encore de record.</div>`;
+
+  // Les autres lignes : les tentatives qui n'ont pas fait mieux.
+  const autres = donnees.rameur
+    .filter(entree => !record || entree.id !== record.id)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const zoneListe = document.getElementById('listeRameur');
+  zoneListe.innerHTML = autres.length === 0 ? '' : `
+    <div class="titre-secondaire">Tentatives précédentes</div>
+    ${autres.map(entree => `
+      <div class="perf-entry">
+        <span class="perf-date">${dateCourte(entree.date)}</span>
+        <span class="perf-val">${entree.temps} /1000 m</span>
+        <button class="btn-suppr ecriture" data-table="rameur" data-id="${entree.id}">✕</button>
+      </div>`).join('')}`;
+}
+
+// Le formulaire reste replié tant qu'on n'a rien battu.
+document.getElementById('btnOuvrirRecord').addEventListener('click', () => {
+  if (verrouille()) return;
+  const formulaire = document.getElementById('formulaireRecord');
+  const ouvert = formulaire.style.display === 'block';
+  formulaire.style.display = ouvert ? 'none' : 'block';
+  if (!ouvert) document.getElementById('champDistanceRameur').focus();
+});
+
+// L'allure s'affiche pendant la frappe : on voit ce qu'on va enregistrer.
+function rafraichirAllure() {
+  const secondes = allureAu1000(
+    document.getElementById('champDistanceRameur').value,
+    document.getElementById('champDureeRameur').value
+  );
+  const zone = document.getElementById('allureCalculee');
+
+  if (secondes === null) {
+    zone.textContent = 'Saisis la distance et la durée.';
+    zone.classList.remove('valide');
+    return;
+  }
+  zone.innerHTML = `Allure : <strong>${secondesVersTemps(secondes)}</strong> /1000 m`;
+  zone.classList.add('valide');
+}
+document.getElementById('champDistanceRameur').addEventListener('input', rafraichirAllure);
+document.getElementById('champDureeRameur').addEventListener('input', rafraichirAllure);
+
 document.getElementById('btnAjouterRameur').addEventListener('click', async () => {
   if (verrouille()) return;
   const date = document.getElementById('champDateRameur').value;
-  const champTemps = document.getElementById('champTempsRameur');
-  const temps = normaliserTempsRameur(champTemps.value);
+  const distance = document.getElementById('champDistanceRameur');
+  const duree = document.getElementById('champDureeRameur');
+  const secondes = allureAu1000(distance.value, duree.value);
 
   if (!date) { afficherStatut('Choisis une date', 'erreur'); return; }
-  if (!temps) {
-    afficherStatut('Temps illisible — écris par exemple 4.06', 'erreur');
+  if (secondes === null) {
+    afficherStatut('Renseigne une distance et une durée', 'erreur');
     return;
   }
-  // On réaffiche le temps compris, pour que la conversion soit visible.
-  champTemps.value = temps;
+  // La base n'accepte que deux chiffres de minutes.
+  if (secondes >= 100 * 60) {
+    afficherStatut('Allure hors limites — vérifie la distance', 'erreur');
+    return;
+  }
 
+  const temps = secondesVersTemps(secondes);
   const { data, error } = await bdd.from('rameur').insert({ date: date, temps: temps }).select();
   if (error) { afficherStatut('Erreur : ' + error.message, 'erreur'); return; }
 
+  const ancien = meilleureLigneRameur();
   donnees.rameur.push(data[0]);
-  champTemps.value = '';
-  afficherStatut(`Perf rameur ${temps} ajoutée ✓`, 'ok');
-  afficherListeRameur();
+
+  const estNouveauRecord = !ancien || secondes < tempsEnSecondes(ancien.temps);
+  afficherStatut(estNouveauRecord ? `Nouveau record : ${temps} 🏆` : `${temps} enregistré ✓`, 'ok');
+
+  distance.value = '';
+  duree.value = '';
+  rafraichirAllure();
+  document.getElementById('formulaireRecord').style.display = 'none';
+  afficherRameur();
   afficherBadges();
 });
-
-document.getElementById('btnAjouterTapis').addEventListener('click', async () => {
-  if (verrouille()) return;
-  const date = document.getElementById('champDateTapis').value;
-  const duree = document.getElementById('champDureeTapis').value;
-  const vitesse = document.getElementById('champVitesseTapis').value;
-  const inclinaison = document.getElementById('champInclinaisonTapis').value;
-
-  if (!date) { afficherStatut('Choisis une date', 'erreur'); return; }
-  if (duree === '') { afficherStatut('Renseigne au moins la durée', 'erreur'); return; }
-
-  const ligne = {
-    date: date,
-    duree: parseFloat(duree),
-    vitesse: vitesse === '' ? null : parseFloat(vitesse),
-    inclinaison: inclinaison === '' ? null : parseFloat(inclinaison)
-  };
-
-  const { data, error } = await bdd.from('tapis').insert(ligne).select();
-  if (error) { afficherStatut('Erreur : ' + error.message, 'erreur'); return; }
-
-  donnees.tapis.push(data[0]);
-  document.getElementById('champDureeTapis').value = '';
-  document.getElementById('champVitesseTapis').value = '';
-  document.getElementById('champInclinaisonTapis').value = '';
-  afficherStatut('Perf tapis ajoutée ✓', 'ok');
-  afficherListeTapis();
-});
-
-function afficherListeRameur() {
-  const zone = document.getElementById('listeRameur');
-  if (donnees.rameur.length === 0) {
-    zone.innerHTML = '<div class="empty-msg">Aucune donnée pour l\'instant.</div>';
-    return;
-  }
-  const triees = [...donnees.rameur].sort((a, b) => b.date.localeCompare(a.date));
-  zone.innerHTML = triees.map(entree => `
-    <div class="perf-entry">
-      <span class="perf-date">${dateCourte(entree.date)}</span>
-      <span class="perf-val">${entree.temps} /1000 m</span>
-      <button class="btn-suppr ecriture" data-table="rameur" data-id="${entree.id}">✕</button>
-    </div>`).join('');
-}
-
-function afficherListeTapis() {
-  const zone = document.getElementById('listeTapis');
-  if (donnees.tapis.length === 0) {
-    zone.innerHTML = '<div class="empty-msg">Aucune donnée pour l\'instant.</div>';
-    return;
-  }
-  const triees = [...donnees.tapis].sort((a, b) => b.date.localeCompare(a.date));
-  zone.innerHTML = triees.map(entree => {
-    const morceaux = [`${entree.duree} min`];
-    if (entree.vitesse !== null) morceaux.push(`${entree.vitesse} km/h`);
-    if (entree.inclinaison !== null) morceaux.push(`${entree.inclinaison} %`);
-    return `
-      <div class="perf-entry">
-        <span class="perf-date">${dateCourte(entree.date)}</span>
-        <span class="perf-val">${morceaux.join(' · ')}</span>
-        <button class="btn-suppr ecriture" data-table="tapis" data-id="${entree.id}">✕</button>
-      </div>`;
-  }).join('');
-}
 
 
 /* ============================================================
@@ -1065,16 +1108,13 @@ document.addEventListener('click', async evenement => {
     if (!ok) return;
     if (table === 'rameur') {
       donnees.rameur = donnees.rameur.filter(entree => entree.id !== id);
-      afficherListeRameur();
+      afficherRameur();
       afficherBadges();
-    } else if (table === 'bonus') {
+    } else {
       donnees.bonus = donnees.bonus.filter(entree => entree.id !== id);
       afficherBonusDuJour();
       afficherCalendrier();
       afficherBilan();
-    } else {
-      donnees.tapis = donnees.tapis.filter(entree => entree.id !== id);
-      afficherListeTapis();
     }
   }
 });
@@ -1103,9 +1143,7 @@ function construireExport() {
     days: jours,
     weights: donnees.poids.map(e => ({ date: isoVersFr(e.date), weight: e.weight })),
     rameur: donnees.rameur.map(e => ({ date: isoVersFr(e.date), temps: e.temps })),
-    tapis: donnees.tapis.map(e => ({
-      date: isoVersFr(e.date), duree: e.duree, vitesse: e.vitesse, inclinaison: e.inclinaison
-    }))
+    bonus: donnees.bonus.map(e => ({ date: isoVersFr(e.date), activite: e.activite }))
   };
 }
 
@@ -1182,7 +1220,7 @@ document.getElementById('btnRestaurer').addEventListener('click', async () => {
       if (error) throw error;
     }
 
-    /* Rameur et tapis n'ont pas de contrainte d'unicité : réimporter
+    /* Rameur et bonus n'ont pas de contrainte d'unicité : réimporter
        créerait des doublons. On ne garde donc que les entrées absentes,
        en comparant sur (date + valeurs). */
     const signatureRameur = new Set(donnees.rameur.map(e => e.date + '|' + e.temps));
@@ -1194,17 +1232,15 @@ document.getElementById('btnRestaurer').addEventListener('click', async () => {
       if (error) throw error;
     }
 
-    const signatureTapis = new Set(donnees.tapis.map(e => `${e.date}|${e.duree}|${e.vitesse}|${e.inclinaison}`));
-    const lignesTapis = (importe.tapis || [])
-      .map(e => ({
-        date: normaliserDate(e.date),
-        duree: e.duree === undefined || e.duree === null || e.duree === '' ? null : parseFloat(e.duree),
-        vitesse: e.vitesse === undefined || e.vitesse === null || e.vitesse === '' || e.vitesse === '-' ? null : parseFloat(e.vitesse),
-        inclinaison: e.inclinaison === undefined || e.inclinaison === null || e.inclinaison === '' ? null : parseFloat(e.inclinaison)
-      }))
-      .filter(e => e.date && !signatureTapis.has(`${e.date}|${e.duree}|${e.vitesse}|${e.inclinaison}`));
-    if (lignesTapis.length) {
-      const { error } = await bdd.from('tapis').insert(lignesTapis);
+    /* Deux bonus identiques le même jour — deux fois du foot — se
+       confondent ici et n'en font qu'un au retour. C'est le prix de la
+       protection contre les doublons, et le cas est rare. */
+    const signatureBonus = new Set(donnees.bonus.map(e => e.date + '|' + e.activite));
+    const lignesBonus = (importe.bonus || [])
+      .map(e => ({ date: normaliserDate(e.date), activite: normaliserBonus(String(e.activite || '')) }))
+      .filter(e => e.date && e.activite && !signatureBonus.has(e.date + '|' + e.activite));
+    if (lignesBonus.length) {
+      const { error } = await bdd.from('bonus').insert(lignesBonus);
       if (error) throw error;
     }
 
@@ -1691,7 +1727,6 @@ async function demarrerAppli() {
   // Les champs de date sont pré-remplis à aujourd'hui.
   document.getElementById('champDatePoids').value = aujourdhui();
   document.getElementById('champDateRameur').value = aujourdhui();
-  document.getElementById('champDateTapis').value = aujourdhui();
 
   monRole = await chargerRole();
   estLecteur = (monRole !== 'proprietaire');

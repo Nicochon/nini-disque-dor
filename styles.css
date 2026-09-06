@@ -174,6 +174,53 @@ textarea { width: 100%; padding: 10px; border: 1px solid var(--line); border-rad
 .resume-poids.mieux { background: linear-gradient(180deg, #f3f8f4, #e9f1eb); border-color: var(--sage); }
 .resume-poids.mieux .chiffre { color: var(--sage-deep); }
 
+/* --- Programmes : les listes d'exercices, en lecture seule --- */
+/* Aucune case à cocher ici : ces cartes sont un aide-mémoire, la
+   validation des séances se fait dans l'onglet Jour. */
+.exos { list-style: none; margin: 0; padding: 0; font-family: var(--sans); }
+.exos li {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 9px 0; border-bottom: 1px solid #f0ede4; font-size: 0.84rem;
+}
+.exos li:last-child { border-bottom: none; }
+.exos .mouvement { flex: 1; }
+.exos .precision { display: block; font-size: 0.72rem; color: #9a9284; margin-top: 2px; }
+.exos .dose { color: var(--sage-deep); font-weight: 600; font-size: 0.78rem; white-space: nowrap; text-align: right; }
+
+/* Les intertitres de la carte salle : cardio, haut, bas. */
+.bloc-exos {
+  font-family: var(--sans); font-size: 0.72rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--sage-deep);
+  margin: 16px 0 6px; padding-top: 12px; border-top: 1px solid var(--line);
+}
+.bloc-exos:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+.bloc-exos .series { float: right; text-transform: none; letter-spacing: 0; color: #9a9284; font-weight: 400; }
+
+/* --- Rameur : le record, et lui seul --- */
+.record {
+  text-align: center; padding: 18px 14px;
+  border: 1px solid var(--gold); border-radius: 10px;
+  background: linear-gradient(180deg, #fdfbf3, #f7f0dd);
+  font-family: var(--sans);
+}
+.record-etiquette { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: #9a8433; }
+.record-temps { font-size: 2.1rem; font-weight: 700; line-height: 1.1; margin: 4px 0 2px; }
+.record-temps .unite { font-size: 0.8rem; font-weight: 400; color: #6b6459; }
+.record-date { font-size: 0.74rem; color: #6b6459; }
+
+.allure-calculee {
+  margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+  background: #f4f2ec; color: #9a9284;
+  font-family: var(--sans); font-size: 0.82rem; text-align: center;
+}
+.allure-calculee.valide { background: #eef3ef; color: var(--sage-deep); }
+.allure-calculee strong { font-size: 1.05rem; }
+
+.titre-secondaire {
+  font-family: var(--sans); font-size: 0.7rem; text-transform: uppercase;
+  letter-spacing: 0.06em; color: #9a9284; margin-bottom: 4px;
+}
+
 /* --- Listes de perfs --- */
 .perf-entry { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0ede4; font-family: var(--sans); font-size: 0.82rem; }
 .perf-entry:last-child { border-bottom: none; }

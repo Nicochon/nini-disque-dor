@@ -73,14 +73,12 @@ create table if not exists rameur (
   temps  text not null check (temps ~ '^[0-9]{1,2}:[0-5][0-9]$')
 );
 
--- Perfs tapis : plusieurs entrées possibles par date.
-create table if not exists tapis (
-  id           uuid primary key default gen_random_uuid(),
-  date         date not null,
-  duree        numeric check (duree >= 0),   -- minutes
-  vitesse      numeric check (vitesse >= 0), -- km/h
-  inclinaison  numeric check (inclinaison >= 0) -- %
-);
+-- La table "tapis" a existé ici jusqu'au 06/09/2026. Le tapis est un
+-- cardio fixe, coché comme les autres activités : il n'y avait rien à
+-- mesurer. L'écran de saisie a disparu et le script ne la crée plus.
+-- Si elle traîne encore dans ta base et que tu veux la faire disparaître :
+--     drop table if exists tapis;
+-- Ce script, lui, ne détruit jamais rien : à toi de lancer cette ligne.
 
 -- Sport bonus : ce qui est fait EN PLUS du minimum hebdomadaire — foot,
 -- basket, rando… Une ligne par activité pratiquée, et non une colonne par
@@ -100,7 +98,6 @@ create table if not exists bonus (
 
 -- Index pour les listes triées par date décroissante.
 create index if not exists idx_rameur_date on rameur (date desc);
-create index if not exists idx_tapis_date  on tapis  (date desc);
 create index if not exists idx_bonus_date  on bonus  (date desc);
 
 
@@ -180,8 +177,8 @@ grant execute on function public.est_proprietaire() to authenticated;
 -- On coupe donc tout accès au rôle "anon" (visiteur non connecté) :
 -- sans être authentifié, on ne peut rien lire ni écrire.
 
-revoke all on days, weights, rameur, tapis, bonus, acces from anon;
-grant select, insert, update, delete on days, weights, rameur, tapis, bonus to authenticated;
+revoke all on days, weights, rameur, bonus, acces from anon;
+grant select, insert, update, delete on days, weights, rameur, bonus to authenticated;
 grant select, insert, update, delete on acces to authenticated;
 
 
@@ -195,7 +192,6 @@ grant select, insert, update, delete on acces to authenticated;
 alter table days    enable row level security;
 alter table weights enable row level security;
 alter table rameur  enable row level security;
-alter table tapis   enable row level security;
 alter table bonus   enable row level security;
 alter table acces   enable row level security;
 
@@ -204,7 +200,6 @@ alter table acces   enable row level security;
 drop policy if exists acces_utilisateur_connecte on days;
 drop policy if exists acces_utilisateur_connecte on weights;
 drop policy if exists acces_utilisateur_connecte on rameur;
-drop policy if exists acces_utilisateur_connecte on tapis;
 
 drop policy if exists lecture       on days;
 drop policy if exists ecriture_ajout on days;
@@ -218,10 +213,6 @@ drop policy if exists lecture       on rameur;
 drop policy if exists ecriture_ajout on rameur;
 drop policy if exists ecriture_maj   on rameur;
 drop policy if exists ecriture_suppr on rameur;
-drop policy if exists lecture       on tapis;
-drop policy if exists ecriture_ajout on tapis;
-drop policy if exists ecriture_maj   on tapis;
-drop policy if exists ecriture_suppr on tapis;
 drop policy if exists lecture       on bonus;
 drop policy if exists ecriture_ajout on bonus;
 drop policy if exists ecriture_maj   on bonus;
@@ -231,7 +222,6 @@ drop policy if exists ecriture_suppr on bonus;
 create policy lecture on days    for select to authenticated using (a_acces());
 create policy lecture on weights for select to authenticated using (a_acces());
 create policy lecture on rameur  for select to authenticated using (a_acces());
-create policy lecture on tapis   for select to authenticated using (a_acces());
 create policy lecture on bonus   for select to authenticated using (a_acces());
 
 -- Écriture : réservée au propriétaire. Trois policies distinctes, car
@@ -248,9 +238,6 @@ create policy ecriture_ajout on rameur  for insert to authenticated with check (
 create policy ecriture_maj   on rameur  for update to authenticated using (est_proprietaire()) with check (est_proprietaire());
 create policy ecriture_suppr on rameur  for delete to authenticated using (est_proprietaire());
 
-create policy ecriture_ajout on tapis   for insert to authenticated with check (est_proprietaire());
-create policy ecriture_maj   on tapis   for update to authenticated using (est_proprietaire()) with check (est_proprietaire());
-create policy ecriture_suppr on tapis   for delete to authenticated using (est_proprietaire());
 
 create policy ecriture_ajout on bonus   for insert to authenticated with check (est_proprietaire());
 create policy ecriture_maj   on bonus   for update to authenticated using (est_proprietaire()) with check (est_proprietaire());
@@ -321,6 +308,6 @@ create policy proprietaire_gere on acces
 --      where schemaname = 'public'
 --      order by tablename, cmd;
 --
---  Attendu : pour days, weights, rameur et tapis, une policy SELECT
+--  Attendu : pour days, weights, rameur et bonus, une policy SELECT
 --  (lecture) et trois policies INSERT/UPDATE/DELETE (écriture).
 -- ============================================================
