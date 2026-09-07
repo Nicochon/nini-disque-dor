@@ -476,6 +476,7 @@ document.querySelectorAll('#panneauJour .switch').forEach(interrupteur => {
     await sauvegarderJour(jourSelectionne, 'Enregistré ✓');
     afficherCalendrier();
     afficherBadges();
+    afficherBilan();
     if (jourSelectionne === aujourdhui()) afficherAujourdhui();
   });
 });
@@ -1650,6 +1651,11 @@ function afficherBilan() {
         ${lignesSeances}
       </div>
 
+      <div class="bilan-tuile pleine">
+        <div class="bilan-titre-tuile">${typePeriodeBilan === 'mois' ? 'Les douze dernières semaines' : 'Jour par jour'}</div>
+        ${grapheBilan(bilan.debut, bilan.finReelle)}
+      </div>
+
       ${bilan.notes.length ? `
       <div class="bilan-tuile pleine">
         ${listeNotes(bilan.notes)}
@@ -1683,6 +1689,174 @@ document.querySelectorAll('.bilan-onglet').forEach(onglet => {
     afficherBilan();
   });
 });
+
+
+/* ------------------------------------------------------------
+   LE GRAPHE DU JOUR LE JOUR — à l'intérieur du Bilan
+   ------------------------------------------------------------
+   Il suit la période choisie par les flèches du Bilan : sept points pour
+   une semaine, une trentaine pour un mois. Il répond à « que s'est-il
+   passé dans cette période », là où le graphe général répond à « comment
+   ça évolue depuis le début ».
+
+   Son échelle va de 0 à 10, et non de 0 à 20 : une journée compte au
+   mieux quatre ou cinq activités, jamais dix-huit. Les deux graphes ne se
+   comparent donc pas l'un à l'autre — chacun porte sa graduation.
+
+   La courbe est en dents de scie, et c'est voulu : à l'échelle du jour,
+   un jour de repos est un vrai zéro, pas un creux à lisser.
+   ------------------------------------------------------------ */
+
+// Le régime n'est pas une activité physique : il n'entre dans aucun des
+// deux graphes. Dérivé d'ACTIVITES pour qu'ajouter une activité un jour
+// n'oblige pas à penser à cette liste-ci.
+const ACTIVITES_PHYSIQUES = ACTIVITES.filter(cle => cle !== 'regime');
+
+/* Les pastilles d'une courbe, avec leur valeur écrite à côté — la douleur
+   au-dessus de son point, les activités en dessous du leur, pour qu'elles
+   ne se marchent pas dessus quand les deux courbes se croisent.
+
+   En dessous de 22 px entre deux points, les nombres se chevaucheraient :
+   on ne garde alors que les pastilles. C'est le cas d'un Bilan mensuel,
+   où trente et un jours ne laissent que 11 px. */
+function pointsDeCourbe(valeurs, versX, versY, couleur, decalageY, montrerValeurs) {
+  return valeurs.map((valeur, i) => {
+    const x = versX(i), y = versY(valeur);
+    if (!montrerValeurs) return `<circle cx="${x}" cy="${y}" r="2.8" fill="${couleur}"/>`;
+
+    const texte = Number.isInteger(valeur) ? valeur : valeur.toFixed(1).replace('.', ',');
+    return `<circle cx="${x}" cy="${y}" r="2.8" fill="${couleur}"/>` +
+      `<text x="${x}" y="${y + decalageY}" font-size="9" font-family="-apple-system,sans-serif" fill="${couleur}" text-anchor="middle">${texte}</text>`;
+  }).join('');
+}
+
+const ECART_MINIMAL_VALEURS = 22;   // px entre deux points, sous lequel on masque les nombres
+const VALEUR_AU_DESSUS = -8;
+const VALEUR_EN_DESSOUS = 13;
+
+// Les activités physiques d'une seule journée, sport bonus compris.
+function seancesDuJour(cle) {
+  const jour = donnees.jours[cle];
+  const cochees = jour ? ACTIVITES_PHYSIQUES.filter(activite => jour[activite]).length : 0;
+  return cochees + donnees.bonus.filter(entree => entree.date === cle).length;
+}
+
+/* Le tracé, commun aux trois graphes. Ils ne diffèrent que par leurs
+   points, leur plafond et leurs étiquettes — le dessin, lui, est écrit
+   une seule fois.
+
+   "fond" reçoit ce qui doit passer derrière les courbes, par exemple les
+   traits de lundi du graphe journalier. */
+function dessinerGraphe(douleurs, seances, etiquettes, maxi, paliers, fond) {
+  /* La marge haute laisse la place au nombre écrit au-dessus du point le
+     plus élevé ; sans elle, une valeur au plafond serait rognée. */
+  const largeur = 360, hauteur = 180, margeGauche = 26, margeDroite = 12, margeBas = 32, margeHaut = 24;
+  const pasX = (largeur - margeGauche - margeDroite) / (douleurs.length - 1);
+  const versX = i => margeGauche + i * pasX;
+  const versY = valeur => hauteur - margeBas - (Math.min(valeur, maxi) / maxi) * (hauteur - margeBas - margeHaut);
+  const montrerValeurs = pasX >= ECART_MINIMAL_VALEURS;
+
+  const grille = paliers.map(valeur => `
+    <line x1="${margeGauche}" y1="${versY(valeur)}" x2="${largeur - margeDroite}" y2="${versY(valeur)}" stroke="#f0ede4" stroke-width="1"/>
+    <text x="${margeGauche - 5}" y="${versY(valeur) + 3}" font-size="9" font-family="-apple-system,sans-serif" fill="#9a9284" text-anchor="end">${valeur}</text>`).join('');
+
+  const ligne = valeurs => valeurs.map((v, i) => `${versX(i)},${versY(v)}`).join(' ');
+
+  const dates = etiquettes.map((texte, i) => texte
+    ? `<text x="${versX(i)}" y="${hauteur - 8}" font-size="9" font-family="-apple-system,sans-serif" fill="#9a9284" text-anchor="middle">${texte}</text>`
+    : '').join('');
+
+  return `
+    <svg viewBox="0 0 ${largeur} ${hauteur}" style="width:100%; height:auto; display:block;">
+      ${fond ? fond(versX, versY, margeHaut) : ''}
+      ${grille}
+      <polyline points="${ligne(seances)}" fill="none" stroke="#6b8f7c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <polyline points="${ligne(douleurs)}" fill="none" stroke="#b5654a" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      ${pointsDeCourbe(seances, versX, versY, '#6b8f7c', VALEUR_EN_DESSOUS, montrerValeurs)}
+      ${pointsDeCourbe(douleurs, versX, versY, '#b5654a', VALEUR_AU_DESSUS, montrerValeurs)}
+      ${dates}
+    </svg>
+    <div class="legend" style="margin-top:2px;">
+      <span><span class="sw" style="background:var(--sage)"></span>Séances</span>
+      <span><span class="sw" style="background:var(--clay)"></span>Douleur</span>
+    </div>`;
+}
+
+/* La vue Semaine : un point par jour, échelle 0 à 10. Une journée compte
+   au mieux quatre ou cinq activités, jamais dix-huit. */
+function grapheParJour(cleDebut, cleFin) {
+  const cles = clesEntre(cleDebut, cleFin);
+  if (cles.length < 2) return '<div class="empty-msg">Période trop courte pour un graphe.</div>';
+
+  const etiquettes = cles.map((cle, i) => (cles.length <= 8 || i % 5 === 0) ? String(versDate(cle).getDate()) : '');
+
+  /* Un trait pâle chaque lundi, pour retrouver le rythme des semaines. */
+  const lundis = (versX, versY, margeHaut) => cles.map((cle, i) => versDate(cle).getDay() === 1
+    ? `<line x1="${versX(i)}" y1="${margeHaut}" x2="${versX(i)}" y2="${versY(0)}" stroke="#eceadf" stroke-width="1"/>`
+    : '').join('');
+
+  return dessinerGraphe(cles.map(douleurDuJour), cles.map(seancesDuJour), etiquettes, 10, [0, 5, 10], lundis);
+}
+
+const NB_SEMAINES_GRAPHE = 12;
+
+/* Les semaines terminées, de la plus ancienne à la plus récente. La
+   semaine en cours est écartée : incomplète, son compte de séances
+   creuserait un faux plongeon à droite tous les lundis. */
+function semainesTerminees(nombre) {
+  const semaines = [];
+  const curseur = new Date();
+  curseur.setDate(curseur.getDate() - 7);   // on démarre à la semaine précédente
+
+  for (let i = 0; i < nombre; i++) {
+    const bornes = bornesPeriode(curseur, 'semaine');
+    if (bornes.fin < DATE_DEBUT) break;     // antérieure au suivi
+    semaines.unshift(bornes);
+    curseur.setDate(curseur.getDate() - 7);
+  }
+  return semaines;
+}
+
+// Les séances physiques d'une semaine, sport bonus compris.
+function seancesDeLaSemaine(bornes) {
+  return clesEntre(bornes.debut, bornes.fin)
+    .reduce((total, cle) => total + seancesDuJour(cle), 0);
+}
+
+/* La vue Mois : la vue longue. Un point par semaine terminée, sur les
+   douze dernières, échelle 0 à 20.
+
+   Elle ne suit pas les flèches du Bilan : les tuiles au-dessus changent de
+   mois, ce graphe montre toujours la même fenêtre glissante. C'est
+   assumé — le titre de la tuile le dit — parce qu'un mois isolé ne
+   contient que quatre points, trop peu pour lire quoi que ce soit. */
+function grapheDouzeSemaines() {
+  const semaines = semainesTerminees(NB_SEMAINES_GRAPHE);
+  if (semaines.length < 2) {
+    return '<div class="empty-msg">Il faut deux semaines terminées pour tracer une courbe.</div>';
+  }
+
+  /* Douze étiquettes de dates se chevaucheraient : une sur trois, plus la
+     dernière semaine. */
+  const etiquettes = semaines.map((bornes, i) =>
+    (i % 3 === 0 || i === semaines.length - 1) ? dateCourte(bornes.debut) : '');
+
+  return dessinerGraphe(
+    semaines.map(bornes => douleurMoyenneSur(bornes.debut, bornes.fin) || 0),
+    semaines.map(seancesDeLaSemaine),
+    etiquettes,
+    20, [0, 5, 10, 15, 20], null
+  );
+}
+
+// La semaine montre ses jours ; le mois, la vue longue.
+function grapheBilan(cleDebut, cleFin) {
+  return typePeriodeBilan === 'mois'
+    ? grapheDouzeSemaines()
+    : grapheParJour(cleDebut, cleFin);
+}
+
+
 
 
 /* ============================================================
