@@ -5,6 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f6f4ee">
 <meta name="robots" content="noindex, nofollow">
+
+<!-- Politique de sécurité du contenu.
+     GitHub Pages ne permet pas d'ajouter des en-têtes HTTP : on la déclare
+     donc ici. Elle est la dernière ligne de défense — même si du code
+     parvenait à s'injecter dans la page, il ne pourrait ni se charger
+     depuis ailleurs, ni renvoyer quoi que ce soit vers un autre serveur.
+
+     · default-src 'self'  — scripts, polices, worker : tout vient d'ici
+     · connect-src         — seul ton projet Supabase est joignable. Cette
+                             adresse doit rester identique à SUPABASE_URL
+                             dans compte.js
+     · style-src           — 'unsafe-inline' est nécessaire aux attributs
+                             style="..." du HTML ; il ne concerne pas les
+                             scripts, donc il n'ouvre pas de brèche ici
+     · object-src / base-uri 'none' — rien à embarquer, aucune réécriture
+                             de l'URL de base -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  connect-src 'self' https://qafiwvnokwajkduoajna.supabase.co;
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data:;
+  object-src 'none';
+  base-uri 'none';
+  form-action 'none'">
+<!-- Plein écran une fois l'application installée. La première est le
+     standard, réclamé par Chrome ; la seconde reste nécessaire à iOS,
+     qui ne connaît que celle d'Apple. -->
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Suivi">
 <title>Suivi remise en forme</title>

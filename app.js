@@ -47,12 +47,26 @@ let jourSelectionne = null;
 
 
 /* ============================================================
-   2. OUTILS DE DATE
+   2. OUTILS DE DATE ET DE TEXTE
    ============================================================
    Important : on n'utilise jamais toISOString(), qui renvoie la date en
    heure UTC — entre minuit et 2 h du matin en France, elle donnerait la
    veille. Tout est calculé en heure locale.
    ------------------------------------------------------------ */
+
+/* Tout texte libre qui finit dans du HTML passe par ici : le nom d'un
+   sport bonus, une note de douleur. Sans ça, du code glissé dans l'un de
+   ces champs s'exécuterait dans la page, avec accès au jeton de session.
+
+   Ce n'est pas théorique : la restauration accepte du JSON collé, donc du
+   texte dont on ne connaît pas l'origine. */
+function echapper(texte) {
+  return String(texte)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 function cleDate(dateObjet) {
   const annee = dateObjet.getFullYear();
@@ -1014,7 +1028,7 @@ function afficherBonusDuJour() {
   // La liste du jour rend une fausse manœuvre visible et réparable.
   zone.innerHTML = duJour.map(entree => `
     <div class="perf-entry">
-      <span class="perf-val">⭐ ${libelleBonus(entree.activite)}</span>
+      <span class="perf-val">⭐ ${echapper(libelleBonus(entree.activite))}</span>
       <button class="btn-suppr ecriture" data-table="bonus" data-id="${entree.id}">✕</button>
     </div>`).join('');
 }
@@ -1493,7 +1507,7 @@ function ligneBonus(bilan) {
 
   const detail = sports.map(sport => `
     <div class="bilan-bonus-sport">
-      <span class="nom">${libelleBonus(sport)} · ${bilan.bonus[sport].length}</span>
+      <span class="nom">${echapper(libelleBonus(sport))} · ${bilan.bonus[sport].length}</span>
       <span class="quand">${bilan.bonus[sport].map(dateCourte).join(' · ')}</span>
     </div>`).join('');
 
@@ -1515,7 +1529,7 @@ function listeNotes(notes) {
       <span class="pastille" style="background:${couleurDouleur(note.douleur)}"></span>
       <div>
         <div class="bilan-note-entete">${versDate(note.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} · douleur ${note.douleur}</div>
-        <div class="bilan-note-texte">${note.texte.replace(/</g, '&lt;')}</div>
+        <div class="bilan-note-texte">${echapper(note.texte)}</div>
       </div>
     </div>`).join('');
 
