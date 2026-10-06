@@ -10,14 +10,18 @@
    ordinaire du navigateur. Deux garde-fous sont en place :
 
      1. la stratégie « réseau d'abord » : tant que tu as de la connexion,
-        tu vois toujours la dernière version en ligne ;
+        tu vois toujours la dernière version en ligne. « Réseau » veut
+        dire le serveur, pas le cache du navigateur : GitHub Pages
+        autorise ce cache pendant dix minutes, et pendant ce temps on
+        pouvait recevoir une page neuve avec un app.js périmé, qui ne
+        connaît pas les nouveaux onglets ;
      2. le numéro de VERSION ci-dessous : l'incrémenter force la
         suppression de tout l'ancien cache.
 
    En cas de doute après une mise en ligne, incrémente VERSION.
    ------------------------------------------------------------ */
 
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = `suivi-${VERSION}`;
 
 // L'habillage : tout ce qu'il faut pour afficher l'application.
@@ -39,7 +43,7 @@ const FICHIERS = [
 self.addEventListener('install', evenement => {
   evenement.waitUntil(
     caches.open(CACHE)
-      .then(cache => cache.addAll(FICHIERS))
+      .then(cache => cache.addAll(FICHIERS.map(f => new Request(f, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
 });
@@ -68,7 +72,11 @@ self.addEventListener('fetch', evenement => {
   if (new URL(requete.url).origin !== self.location.origin) return;
 
   evenement.respondWith(
-    fetch(requete)
+    // no-cache : le navigateur redemande au serveur si son fichier est
+    // toujours à jour. Un fichier inchangé ne se retélécharge pas.
+    // On passe l'adresse et non la requête : une requête de navigation
+    // (l'ouverture de la page) refuse qu'on lui ajoute des options.
+    fetch(requete.mode === 'navigate' ? requete.url : requete, { cache: 'no-cache' })
       .then(reponse => {
         // Réponse valide : on rafraîchit le cache au passage.
         if (reponse && reponse.status === 200 && reponse.type === 'basic') {
