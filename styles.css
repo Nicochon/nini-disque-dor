@@ -36,6 +36,17 @@ body {
 }
 .wrap { max-width: 640px; margin: 0 auto; }
 header { margin-bottom: 22px; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+/* La roue des réglages, en haut à droite. Le titre se tient à distance
+   pour ne jamais passer dessous. Grisée comme un onglet inactif, en
+   couleur quand Réglages est ouvert. */
+header { position: relative; padding-right: 48px; }
+#btnReglages {
+  position: absolute; top: -6px; right: -4px;
+  width: 44px; height: 44px; background: none; border: none; border-radius: 8px;
+  font-size: 1.25rem; cursor: pointer; filter: grayscale(1); opacity: 0.55;
+}
+#btnReglages.actif { filter: none; opacity: 1; }
+#btnReglages:active { background: #f3f1ea; }
 h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
 .sub { font-family: var(--sans); font-size: 0.82rem; color: var(--sage-deep); margin: 0; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
@@ -503,3 +514,33 @@ body.mode-lecture input[type="text"] {
 .bilan-compte-notes::after { content: ' ▾'; }
 .bilan-notes-repliees[open] .bilan-compte-notes::after { content: ' ▴'; }
 .bilan-notes-repliees[open] > summary { border-bottom: 1px solid #f0ede4; margin-bottom: 4px; }
+
+/* --- Questions aux professionnels --- */
+/* La coche est un rond vide qu'on touche quand la question a été posée :
+   44 px de zone d'appui pour un rond de 22, assez pour le pouce. */
+.question { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0ede4; font-family: var(--sans); font-size: 0.88rem; line-height: 1.4; }
+.question:last-child { border-bottom: none; }
+.question .texte { flex: 1; overflow-wrap: anywhere; }
+.question .quand { display: block; color: #9a9284; font-size: 0.72rem; margin-top: 2px; }
+.question.posee .texte { color: #6b6459; }
+.coche {
+  width: 44px; height: 44px; flex-shrink: 0; margin-left: -10px;
+  background: none; border: none; cursor: pointer; position: relative;
+}
+.coche::before {
+  content: ''; position: absolute; inset: 11px;
+  border: 2px solid var(--sage-deep); border-radius: 50%;
+}
+.coche:active::before { background: var(--sage); }
+.btn-reposer { background: none; border: 1px solid var(--line); color: #9a9284; border-radius: 6px; padding: 6px 10px; font-size: 0.85rem; cursor: pointer; min-height: 32px; flex-shrink: 0; }
+/* L'historique replié, même allure que la ligne « Sport bonus » du Bilan. */
+.questions-posees { margin-top: 10px; border-top: 1px solid var(--line); }
+.questions-posees > summary {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; font-family: var(--sans); font-size: 0.82rem; color: #6b6459;
+  cursor: pointer; list-style: none;
+}
+.questions-posees > summary::-webkit-details-marker { display: none; }
+.questions-posees > summary .titre::after { content: ' ▾'; font-size: 0.68rem; color: #9a9284; }
+.questions-posees[open] > summary .titre::after { content: ' ▴'; }
+.questions-posees > summary .compte { font-weight: 700; }

@@ -96,9 +96,25 @@ create table if not exists bonus (
   activite  text not null
 );
 
+-- Les questions à poser aux professionnels, préparées au fil des jours
+-- pour ne rien oublier au rendez-vous. "posee_le" vide = encore à poser ;
+-- une date = posée ce jour-là, et la question passe dans l'historique.
+-- On ne note pas la réponse : cocher suffit.
+--
+-- Deux professionnels seulement, d'où la contrainte. En ajouter un
+-- demandera de l'élargir ici, sans toucher aux lignes existantes.
+create table if not exists questions (
+  id        uuid primary key default gen_random_uuid(),
+  pro       text not null check (pro in ('kine', 'docteur')),
+  texte     text not null,
+  cree_le   date not null default current_date,
+  posee_le  date
+);
+
 -- Index pour les listes triées par date décroissante.
 create index if not exists idx_rameur_date on rameur (date desc);
 create index if not exists idx_bonus_date  on bonus  (date desc);
+create index if not exists idx_questions_cree on questions (cree_le desc);
 
 
 -- ------------------------------------------------------------
@@ -177,8 +193,8 @@ grant execute on function public.est_proprietaire() to authenticated;
 -- On coupe donc tout accès au rôle "anon" (visiteur non connecté) :
 -- sans être authentifié, on ne peut rien lire ni écrire.
 
-revoke all on days, weights, rameur, bonus, acces from anon;
-grant select, insert, update, delete on days, weights, rameur, bonus to authenticated;
+revoke all on days, weights, rameur, bonus, questions, acces from anon;
+grant select, insert, update, delete on days, weights, rameur, bonus, questions to authenticated;
 grant select, insert, update, delete on acces to authenticated;
 
 
@@ -193,6 +209,7 @@ alter table days    enable row level security;
 alter table weights enable row level security;
 alter table rameur  enable row level security;
 alter table bonus   enable row level security;
+alter table questions enable row level security;
 alter table acces   enable row level security;
 
 -- On supprime les policies existantes avant de les recréer,
@@ -217,12 +234,17 @@ drop policy if exists lecture       on bonus;
 drop policy if exists ecriture_ajout on bonus;
 drop policy if exists ecriture_maj   on bonus;
 drop policy if exists ecriture_suppr on bonus;
+drop policy if exists lecture        on questions;
+drop policy if exists ecriture_ajout on questions;
+drop policy if exists ecriture_maj   on questions;
+drop policy if exists ecriture_suppr on questions;
 
 -- Lecture : ouverte à tout compte listé dans "acces" (propriétaire ou lecteur).
 create policy lecture on days    for select to authenticated using (a_acces());
 create policy lecture on weights for select to authenticated using (a_acces());
 create policy lecture on rameur  for select to authenticated using (a_acces());
 create policy lecture on bonus   for select to authenticated using (a_acces());
+create policy lecture on questions for select to authenticated using (a_acces());
 
 -- Écriture : réservée au propriétaire. Trois policies distinctes, car
 -- insert, update et delete se déclarent séparément.
@@ -242,6 +264,10 @@ create policy ecriture_suppr on rameur  for delete to authenticated using (est_p
 create policy ecriture_ajout on bonus   for insert to authenticated with check (est_proprietaire());
 create policy ecriture_maj   on bonus   for update to authenticated using (est_proprietaire()) with check (est_proprietaire());
 create policy ecriture_suppr on bonus   for delete to authenticated using (est_proprietaire());
+
+create policy ecriture_ajout on questions for insert to authenticated with check (est_proprietaire());
+create policy ecriture_maj   on questions for update to authenticated using (est_proprietaire()) with check (est_proprietaire());
+create policy ecriture_suppr on questions for delete to authenticated using (est_proprietaire());
 
 -- La table "acces" elle-même : chacun lit sa propre ligne (l'application
 -- s'en sert pour savoir dans quel mode se placer), et seul le propriétaire
@@ -308,6 +334,6 @@ create policy proprietaire_gere on acces
 --      where schemaname = 'public'
 --      order by tablename, cmd;
 --
---  Attendu : pour days, weights, rameur et bonus, une policy SELECT
+--  Attendu : pour days, weights, rameur, bonus et questions, une policy SELECT
 --  (lecture) et trois policies INSERT/UPDATE/DELETE (écriture).
 -- ============================================================

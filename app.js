@@ -35,7 +35,8 @@ let donnees = {
   jours: {},    // { "2026-08-17": {kine_renfo, kine_mobilite, sport, kine_seance, regime, velo, douleur, douleur_note, eau} }
   poids: [],    // [{ id, date, weight }]
   rameur: [],   // [{ id, date, temps }] — uniquement les records battus
-  bonus: []     // [{ id, date, activite }] — le sport fait EN PLUS du minimum
+  bonus: [],    // [{ id, date, activite }] — le sport fait EN PLUS du minimum
+  questions: [] // [{ id, pro, texte, cree_le, posee_le }] — posee_le null = encore à poser
 };
 
 // Les exercices kiné se font en deux temps : le renforcement et la mobilité.
@@ -171,14 +172,16 @@ async function executer(action, messageSucces) {
 async function chargerDonnees() {
   afficherStatut('Chargement…', 'chargement');
   try {
-    const [resJours, resPoids, resRameur, resBonus] = await Promise.all([
+    const [resJours, resPoids, resRameur, resBonus, resQuestions] = await Promise.all([
       bdd.from('days').select('*'),
       bdd.from('weights').select('*').order('date', { ascending: true }),
       bdd.from('rameur').select('*').order('date', { ascending: false }),
-      bdd.from('bonus').select('*').order('date', { ascending: false })
+      bdd.from('bonus').select('*').order('date', { ascending: false }),
+      bdd.from('questions').select('*').order('cree_le', { ascending: true })
     ]);
 
-    const erreur = resJours.error || resPoids.error || resRameur.error || resBonus.error;
+    const erreur = resJours.error || resPoids.error || resRameur.error || resBonus.error
+                || resQuestions.error;
     if (erreur) {
       afficherStatut('Erreur de chargement : ' + erreur.message, 'erreur');
       return false;
@@ -189,6 +192,7 @@ async function chargerDonnees() {
     donnees.poids  = resPoids.data  || [];
     donnees.rameur = resRameur.data || [];
     donnees.bonus  = resBonus.data  || [];
+    donnees.questions = resQuestions.data || [];
 
     masquerStatut();
     return true;
@@ -210,6 +214,7 @@ function toutAfficher() {
   afficherRameur();
   afficherGrilleBonus();
   afficherBonusDuJour();
+  afficherQuestions();
   afficherBilan();
 }
 
@@ -1074,6 +1079,103 @@ document.getElementById('btnBonusAutre').addEventListener('click', async () => {
 
 
 /* ============================================================
+   13 bis. QUESTIONS AUX PROFESSIONNELS
+   ============================================================
+   On les note au fil des jours, on les relit au rendez-vous. Cocher une
+   question la marque « posée » : elle quitte la liste et rejoint un
+   historique replié, qui garde la trace de ce qui a déjà été demandé.
+   On ne note pas la réponse — c'est un aide-mémoire, pas un dossier.
+
+   Les questions vivent dans leur propre table, à l'écart des jours :
+   elles n'entrent dans aucun calcul, ni calendrier, ni bilan, ni badge.
+   ------------------------------------------------------------ */
+
+const PROS = [
+  { cle: 'kine',    libelle: 'Kiné' },
+  { cle: 'docteur', libelle: 'Docteur' }
+];
+
+function afficherQuestions() {
+  PROS.forEach(pro => {
+    const duPro = donnees.questions.filter(q => q.pro === pro.cle);
+    const aPoser = duPro.filter(q => !q.posee_le);
+    // Les plus récemment posées d'abord : c'est le dernier rendez-vous
+    // qu'on cherche en dépliant l'historique.
+    const posees = duPro.filter(q => q.posee_le)
+      .sort((a, b) => b.posee_le.localeCompare(a.posee_le));
+
+    const liste = aPoser.length === 0
+      ? '<div class="empty-msg">Aucune question en attente.</div>'
+      : aPoser.map(q => `
+        <div class="question">
+          <button class="coche ecriture" data-poser="${q.id}" aria-label="Marquer comme posée"></button>
+          <span class="texte">${echapper(q.texte)}</span>
+          <button class="btn-suppr ecriture" data-table="questions" data-id="${q.id}">✕</button>
+        </div>`).join('');
+
+    // Une coche par erreur se répare depuis l'historique : ↺ remet la
+    // question dans la liste.
+    const historique = posees.length === 0 ? '' : `
+      <details class="questions-posees">
+        <summary><span class="titre">Déjà posées</span><span class="compte">${posees.length}</span></summary>
+        ${posees.map(q => `
+          <div class="question posee">
+            <span class="texte">${echapper(q.texte)}<span class="quand">posée le ${dateCourte(q.posee_le)}</span></span>
+            <button class="btn-reposer ecriture" data-reposer="${q.id}" aria-label="Remettre dans la liste">↺</button>
+            <button class="btn-suppr ecriture" data-table="questions" data-id="${q.id}">✕</button>
+          </div>`).join('')}
+      </details>`;
+
+    document.getElementById('questions-' + pro.cle).innerHTML = liste + historique;
+  });
+}
+
+async function ajouterQuestion(pro) {
+  if (verrouille()) return;
+  const champ = document.getElementById('champQuestion-' + pro);
+  const texte = champ.value.trim();
+  if (!texte) { afficherStatut('Écris d\'abord ta question', 'erreur'); return; }
+
+  const { data, error } = await bdd.from('questions')
+    .insert({ pro: pro, texte: texte, cree_le: aujourdhui() }).select();
+  if (error) { afficherStatut('Erreur : ' + error.message, 'erreur'); return; }
+
+  donnees.questions.push(data[0]);
+  champ.value = '';
+  afficherStatut('Question ajoutée ✓', 'ok');
+  afficherQuestions();
+}
+
+// Cocher (date du jour) ou remettre dans la liste (null) : la même écriture.
+async function marquerQuestion(id, poseeLe) {
+  if (verrouille()) return;
+  const ok = await executer(
+    () => bdd.from('questions').update({ posee_le: poseeLe }).eq('id', id),
+    poseeLe ? 'Question posée ✓' : 'Question remise dans la liste');
+  if (!ok) return;
+  donnees.questions.find(q => q.id === id).posee_le = poseeLe;
+  afficherQuestions();
+}
+
+document.getElementById('vue-questions').addEventListener('click', evenement => {
+  const ajout = evenement.target.closest('[data-ajout-question]');
+  if (ajout) { ajouterQuestion(ajout.dataset.ajoutQuestion); return; }
+
+  const coche = evenement.target.closest('[data-poser]');
+  if (coche) { marquerQuestion(coche.dataset.poser, aujourdhui()); return; }
+
+  const reposer = evenement.target.closest('[data-reposer]');
+  if (reposer) marquerQuestion(reposer.dataset.reposer, null);
+});
+
+// Entrée dans le champ vaut un appui sur « Ajouter ».
+document.getElementById('vue-questions').addEventListener('keydown', evenement => {
+  const champ = evenement.target.closest('[data-champ-question]');
+  if (champ && evenement.key === 'Enter') ajouterQuestion(champ.dataset.champQuestion);
+});
+
+
+/* ============================================================
    14. SUPPRESSION D'UNE LIGNE
    ============================================================
    Confirmation en deux temps : le premier appui transforme le bouton en
@@ -1125,6 +1227,9 @@ document.addEventListener('click', async evenement => {
       donnees.rameur = donnees.rameur.filter(entree => entree.id !== id);
       afficherRameur();
       afficherBadges();
+    } else if (table === 'questions') {
+      donnees.questions = donnees.questions.filter(entree => entree.id !== id);
+      afficherQuestions();
     } else {
       donnees.bonus = donnees.bonus.filter(entree => entree.id !== id);
       afficherBonusDuJour();
@@ -1158,7 +1263,11 @@ function construireExport() {
     days: jours,
     weights: donnees.poids.map(e => ({ date: isoVersFr(e.date), weight: e.weight })),
     rameur: donnees.rameur.map(e => ({ date: isoVersFr(e.date), temps: e.temps })),
-    bonus: donnees.bonus.map(e => ({ date: isoVersFr(e.date), activite: e.activite }))
+    bonus: donnees.bonus.map(e => ({ date: isoVersFr(e.date), activite: e.activite })),
+    questions: donnees.questions.map(e => ({
+      pro: e.pro, texte: e.texte, cree_le: isoVersFr(e.cree_le),
+      ...(e.posee_le ? { posee_le: isoVersFr(e.posee_le) } : {})
+    }))
   };
 }
 
@@ -1256,6 +1365,25 @@ document.getElementById('btnRestaurer').addEventListener('click', async () => {
       .filter(e => e.date && e.activite && !signatureBonus.has(e.date + '|' + e.activite));
     if (lignesBonus.length) {
       const { error } = await bdd.from('bonus').insert(lignesBonus);
+      if (error) throw error;
+    }
+
+    /* Les questions non plus n'ont pas de contrainte d'unicité. La même
+       question posée deux fois au même professionnel le même jour ne
+       revient qu'une fois — même compromis que pour le bonus. */
+    const signatureQuestion = e => e.pro + '|' + e.cree_le + '|' + e.texte;
+    const dejaLa = new Set(donnees.questions.map(signatureQuestion));
+    const lignesQuestions = (importe.questions || [])
+      .map(e => ({
+        pro: e.pro,
+        texte: String(e.texte || '').trim(),
+        cree_le: normaliserDate(e.cree_le),
+        posee_le: normaliserDate(e.posee_le)
+      }))
+      .filter(e => PROS.some(p => p.cle === e.pro) && e.texte && e.cree_le
+                && !dejaLa.has(signatureQuestion(e)));
+    if (lignesQuestions.length) {
+      const { error } = await bdd.from('questions').insert(lignesQuestions);
       if (error) throw error;
     }
 
@@ -1862,7 +1990,9 @@ function grapheBilan(cleDebut, cleFin) {
 /* ============================================================
    17. ONGLETS
    ============================================================
-   Cinq sections dans la page, une seule visible à la fois. L'onglet
+   Six sections dans la page, une seule visible à la fois. Cinq ont leur
+   onglet en bas ; Réglages, rarement ouvert, s'atteint par la roue de
+   l'en-tête. L'onglet
    ouvert est inscrit dans l'adresse (#bilan) : un rechargement rouvre
    la même page au lieu de te renvoyer au calendrier.
 
@@ -1872,7 +2002,7 @@ function grapheBilan(cleDebut, cleFin) {
    les onglets un par un au lieu de quitter l'application.
    ------------------------------------------------------------ */
 
-const VUES = ['jour', 'poids', 'bilan', 'seances', 'reglages'];
+const VUES = ['jour', 'poids', 'bilan', 'seances', 'questions', 'reglages'];
 const VUE_PAR_DEFAUT = 'jour';
 
 function activerVue(nom) {
@@ -1884,6 +2014,7 @@ function activerVue(nom) {
   document.querySelectorAll('.onglet').forEach(onglet => {
     onglet.classList.toggle('actif', onglet.dataset.vue === nom);
   });
+  document.getElementById('btnReglages').classList.toggle('actif', nom === 'reglages');
 
   history.replaceState(null, '', '#' + nom);
   window.scrollTo(0, 0);   // on arrive en haut de l'onglet, pas au milieu
@@ -1892,6 +2023,7 @@ function activerVue(nom) {
 document.querySelectorAll('.onglet').forEach(onglet => {
   onglet.addEventListener('click', () => activerVue(onglet.dataset.vue));
 });
+document.getElementById('btnReglages').addEventListener('click', () => activerVue('reglages'));
 
 // Adresse changée à la main dans la barre du navigateur.
 window.addEventListener('hashchange', () => activerVue(location.hash.slice(1)));

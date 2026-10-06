@@ -67,6 +67,9 @@
 <div id="appli">
 <div class="wrap">
   <header>
+    <!-- Les réglages s'ouvrent d'ici et non depuis la barre du bas : on y
+         passe rarement, et leur place en bas est allée aux questions. -->
+    <button id="btnReglages" aria-label="Réglages">⚙️</button>
     <h1>Suivi remise en forme</h1>
     <p class="sub">Kiné · sport · régime · poids · perfs — jour par jour</p>
     <p class="sub" id="compteurJours" style="margin-top:6px; font-weight:600; color:var(--sage-deep);"></p>
@@ -323,6 +326,30 @@
   </section>
 
   <!-- ============================================================
+       ONGLET « QUESTIONS » — ce qu'on veut demander au prochain rendez-vous
+       ============================================================ -->
+  <section class="vue" id="vue-questions">
+  <!-- Une carte par professionnel ; les listes sont remplies par app.js. -->
+  <div class="card">
+    <h2>Kiné</h2>
+    <div class="row2 ecriture">
+      <input type="text" id="champQuestion-kine" data-champ-question="kine" placeholder="Une question pour le kiné…">
+      <button class="add" data-ajout-question="kine">Ajouter</button>
+    </div>
+    <div id="questions-kine" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="card">
+    <h2>Docteur</h2>
+    <div class="row2 ecriture">
+      <input type="text" id="champQuestion-docteur" data-champ-question="docteur" placeholder="Une question pour le docteur…">
+      <button class="add" data-ajout-question="docteur">Ajouter</button>
+    </div>
+    <div id="questions-docteur" style="margin-top:8px;"></div>
+  </div>
+  </section>
+
+  <!-- ============================================================
        ONGLET « RÉGLAGES » — ce qu'on ne veut ni perdre, ni voir tout le temps
        ============================================================ -->
   <section class="vue" id="vue-reglages">
@@ -364,7 +391,7 @@
   <button class="onglet" data-vue="poids"><span class="icon">⚖️</span><span class="label">Poids</span></button>
   <button class="onglet" data-vue="bilan"><span class="icon">📊</span><span class="label">Bilan</span></button>
   <button class="onglet" data-vue="seances"><span class="icon">🏋️</span><span class="label">Séances</span></button>
-  <button class="onglet" data-vue="reglages"><span class="icon">⚙️</span><span class="label">Réglages</span></button>
+  <button class="onglet" data-vue="questions"><span class="icon">🩺</span><span class="label">Questions</span></button>
 </nav>
 </div>
 
