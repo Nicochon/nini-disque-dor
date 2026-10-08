@@ -176,7 +176,7 @@
 
     <div class="bilan-choix">
       <button class="bilan-onglet actif" data-periode="semaine">Semaine</button>
-      <button class="bilan-onglet" data-periode="mois">Mois</button>
+      <button class="bilan-onglet" data-periode="quatre">4 semaines</button>
     </div>
 
     <div class="cal-nav" style="margin-top:12px;">
@@ -388,6 +388,30 @@
 
   </section>
   </main>
+</div>
+
+<!-- Vue complète du Bilan : un an de semaines en plein écran, ouverte par
+     le bouton « ⤢ Vue complète ». Sur un téléphone tenu droit, la classe
+     "couchee" la dessine d'un quart de tour : on tourne le téléphone pour
+     la lire. Le graphe et la bulle sont remplis par app.js. -->
+<div id="vueComplete">
+  <div class="vue-complete-cadre">
+    <div class="vue-complete-entete">
+      <div>
+        <div class="bilan-titre-tuile" id="titreVueComplete"></div>
+        <div class="legend" style="margin-top:0;">
+          <span><span class="sw" style="background:var(--sage)"></span>Séances dans la semaine</span>
+          <span><span class="sw" style="background:var(--clay)"></span>Douleur moyenne</span>
+          <span class="vue-complete-aide">· appuie sur une semaine pour son détail</span>
+        </div>
+      </div>
+      <button id="btnFermerVueComplete" aria-label="Fermer">✕</button>
+    </div>
+    <div class="vue-complete-graphe">
+      <div id="grapheVueComplete"></div>
+      <div id="bulleSemaine"></div>
+    </div>
+  </div>
 </div>
 
 <!-- Barre d'onglets, fixée en bas : à portée de pouce, comme dans une

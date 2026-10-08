@@ -550,3 +550,45 @@ body.mode-lecture input[type="text"] {
 .questions-posees > summary .titre::after { content: ' ▾'; font-size: 0.68rem; color: #9a9284; }
 .questions-posees[open] > summary .titre::after { content: ' ▴'; }
 .questions-posees > summary .compte { font-weight: 700; }
+
+/* --- Vue complète du Bilan --- */
+.btn-vue-complete {
+  width: 100%; margin-top: 12px; padding: 12px; min-height: 44px;
+  font-family: var(--sans); font-size: 0.85rem; font-weight: 600;
+  background: none; color: var(--sage-deep); border: 1px solid var(--sage); border-radius: 8px; cursor: pointer;
+}
+.btn-vue-complete:active { background: #f3f1ea; }
+
+/* Plein écran, au-dessus de la barre d'onglets et de la barre de statut. */
+#vueComplete { position: fixed; inset: 0; z-index: 80; background: var(--paper); display: none; }
+#vueComplete.ouverte { display: block; }
+.vue-complete-cadre {
+  position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh;
+  padding: 14px 18px 10px; display: flex; flex-direction: column;
+}
+/* Téléphone tenu droit : le cadre prend la hauteur de l'écran pour
+   largeur, puis pivote d'un quart de tour autour du centre. */
+#vueComplete.couchee .vue-complete-cadre {
+  width: 100vh; width: 100dvh; height: 100vw; top: 50%; left: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+  padding-top: max(14px, env(safe-area-inset-left));
+}
+.vue-complete-entete { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.vue-complete-entete .bilan-titre-tuile { margin-bottom: 4px; }
+.vue-complete-aide { color: #9a9284; }
+#btnFermerVueComplete {
+  width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--card); color: #6b6459; font-size: 1rem; cursor: pointer;
+}
+.vue-complete-graphe { position: relative; flex: 1; min-height: 0; }
+#grapheVueComplete { position: absolute; inset: 0; }
+#bulleSemaine {
+  position: absolute; top: 2px; transform: translateX(-50%); display: none; pointer-events: none;
+  background: var(--ink); color: white; border-radius: 8px; padding: 8px 12px;
+  font-family: var(--sans); font-size: 0.78rem; line-height: 1.45; white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+#bulleSemaine.visible { display: block; }
+#bulleSemaine .dates { font-weight: 600; margin-bottom: 2px; }
+#bulleSemaine .douleur { color: #f0b8a3; }
+#bulleSemaine .seances { color: #b7d3c4; }

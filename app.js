@@ -1398,7 +1398,7 @@ document.getElementById('btnRestaurer').addEventListener('click', async () => {
 
 
 /* ============================================================
-   16. BILAN — statistiques par semaine ou par mois
+   16. BILAN — statistiques par semaine ou sur quatre semaines
    ============================================================
    Tout est recalculé à partir de donnees.jours et donnees.poids, déjà
    chargés en mémoire : aucune requête supplémentaire.
@@ -1414,18 +1414,23 @@ document.getElementById('btnRestaurer').addEventListener('click', async () => {
      un nombre de séances qui baisse ne l'est pas.
    ------------------------------------------------------------ */
 
-let typePeriodeBilan = 'semaine';   // 'semaine' ou 'mois'
+let typePeriodeBilan = 'semaine';   // 'semaine' ou 'quatre'
 let dateReferenceBilan = new Date(); // un jour quelconque de la période affichée
 
 /* Bornes de la période contenant `dateObjet`, en clés ISO.
-   La semaine va du lundi au dimanche, comme le calendrier. */
+   La semaine va du lundi au dimanche, comme le calendrier.
+
+   « quatre » : les quatre semaines terminées juste avant la semaine de
+   `dateObjet`. Avec aujourd'hui, ce sont les quatre dernières semaines
+   complètes — jamais la semaine en cours, dont le compte de séances
+   creuserait un faux plongeon tous les lundis. */
 function bornesPeriode(dateObjet, type) {
-  if (type === 'mois') {
-    const annee = dateObjet.getFullYear(), mois = dateObjet.getMonth();
-    return {
-      debut: cleDate(new Date(annee, mois, 1)),
-      fin:   cleDate(new Date(annee, mois + 1, 0))
-    };
+  if (type === 'quatre') {
+    const fin = versDate(bornesPeriode(dateObjet, 'semaine').debut);
+    fin.setDate(fin.getDate() - 1);           // le dimanche d'avant
+    const debut = new Date(fin);
+    debut.setDate(debut.getDate() - 27);      // quatre lundis plus tôt
+    return { debut: cleDate(debut), fin: cleDate(fin) };
   }
   // getDay() renvoie 0 le dimanche : on recule jusqu'au lundi.
   let decalage = dateObjet.getDay() - 1;
@@ -1517,8 +1522,10 @@ function calculerBilan(cleDebut, cleFin) {
   };
 
   // Comparaison avec la période précédente — omise si elle n'a aucun relevé.
+  // Pour « quatre », le lundi du début suffit : les quatre semaines
+  // terminées avant lui sont exactement les précédentes.
   const veille = versDate(cleDebut);
-  veille.setDate(veille.getDate() - 1);
+  if (typePeriodeBilan !== 'quatre') veille.setDate(veille.getDate() - 1);
   const precedente = bornesPeriode(veille, typePeriodeBilan);
   // Comparaison omise si la période précédente est antérieure au suivi.
   const moyennePrecedente = (precedente.fin < DATE_DEBUT)
@@ -1589,12 +1596,9 @@ function calculerBilan(cleDebut, cleFin) {
   };
 }
 
-// "Semaine du 11 au 17 août 2026" ou "Août 2026"
+// "Semaine du 11 au 17 août 2026" ou "8 sept. → 5 oct."
 function libellePeriode(cleDebut, cleFin, type) {
-  if (type === 'mois') {
-    const texte = versDate(cleDebut).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-    return texte.charAt(0).toUpperCase() + texte.slice(1);
-  }
+  if (type === 'quatre') return `${dateCourte(cleDebut)} → ${dateCourte(cleFin)}`;
   const d = versDate(cleDebut), f = versDate(cleFin);
   const memeMois = d.getMonth() === f.getMonth();
   const debutTexte = d.toLocaleDateString('fr-FR', memeMois ? { day: 'numeric' } : { day: 'numeric', month: 'short' });
@@ -1682,9 +1686,13 @@ function afficherBilan() {
     libellePeriode(bornes.debut, bornes.fin, typePeriodeBilan);
 
   // On ne navigue ni avant le début du suivi, ni au-delà de la période en cours.
+  // Les quatre semaines, elles, sont toujours les dernières : pas de flèches.
   const cleAujourdhui = aujourdhui();
   document.getElementById('btnBilanPrecedent').disabled = bornes.debut <= DATE_DEBUT;
   document.getElementById('btnBilanSuivant').disabled = bornes.fin >= cleAujourdhui;
+  ['btnBilanPrecedent', 'btnBilanSuivant'].forEach(id => {
+    document.getElementById(id).style.visibility = typePeriodeBilan === 'quatre' ? 'hidden' : '';
+  });
 
   const zone = document.getElementById('contenuBilan');
   const bilan = calculerBilan(bornes.debut, bornes.fin);
@@ -1774,14 +1782,15 @@ function afficherBilan() {
         <div class="bilan-titre-tuile">Séances</div>
         <div class="bilan-total">
           <span class="bilan-chiffre">${bilan.totalSportif}</span>
-          <span class="bilan-total-texte">séance${bilan.totalSportif > 1 ? 's' : ''} cette ${typePeriodeBilan === 'mois' ? 'période' : 'semaine'}</span>
+          <span class="bilan-total-texte">séance${bilan.totalSportif > 1 ? 's' : ''} ${typePeriodeBilan === 'quatre' ? 'sur ces 4 semaines' : 'cette semaine'}</span>
         </div>
         ${lignesSeances}
       </div>
 
       <div class="bilan-tuile pleine">
-        <div class="bilan-titre-tuile">${typePeriodeBilan === 'mois' ? 'Les douze dernières semaines' : 'Jour par jour'}</div>
+        <div class="bilan-titre-tuile">${typePeriodeBilan === 'quatre' ? 'Semaine par semaine' : 'Jour par jour'}</div>
         ${grapheBilan(bilan.debut, bilan.finReelle)}
+        ${typePeriodeBilan === 'quatre' ? '<button class="btn-vue-complete" id="btnVueComplete">⤢ Vue complète</button>' : ''}
       </div>
 
       ${bilan.notes.length ? `
@@ -1797,11 +1806,8 @@ function afficherBilan() {
 
 // Navigue d'une période vers l'arrière (-1) ou vers l'avant (+1).
 function changerPeriodeBilan(direction) {
-  if (typePeriodeBilan === 'mois') {
-    dateReferenceBilan.setMonth(dateReferenceBilan.getMonth() + direction);
-  } else {
-    dateReferenceBilan.setDate(dateReferenceBilan.getDate() + direction * 7);
-  }
+  if (typePeriodeBilan === 'quatre') return;   // toujours les quatre dernières
+  dateReferenceBilan.setDate(dateReferenceBilan.getDate() + direction * 7);
   afficherBilan();
 }
 
@@ -1820,16 +1826,16 @@ document.querySelectorAll('.bilan-onglet').forEach(onglet => {
 
 
 /* ------------------------------------------------------------
-   LE GRAPHE DU JOUR LE JOUR — à l'intérieur du Bilan
+   LES GRAPHES DU BILAN
    ------------------------------------------------------------
-   Il suit la période choisie par les flèches du Bilan : sept points pour
-   une semaine, une trentaine pour un mois. Il répond à « que s'est-il
-   passé dans cette période », là où le graphe général répond à « comment
-   ça évolue depuis le début ».
+   La vue Semaine trace un point par jour et suit les flèches. La vue
+   4 semaines trace un point par semaine ; la vue complète, ouverte par
+   son bouton, fait de même sur un an.
 
-   Son échelle va de 0 à 10, et non de 0 à 20 : une journée compte au
-   mieux quatre ou cinq activités, jamais dix-huit. Les deux graphes ne se
-   comparent donc pas l'un à l'autre — chacun porte sa graduation.
+   L'échelle du jour va de 0 à 10, celle de la semaine de 0 à 20 : une
+   journée compte au mieux quatre ou cinq activités, une semaine une
+   quinzaine. Les graphes ne se comparent donc pas l'un à l'autre —
+   chacun porte sa graduation.
 
    La courbe est en dents de scie, et c'est voulu : à l'échelle du jour,
    un jour de repos est un vrai zéro, pas un creux à lisser.
@@ -1845,8 +1851,7 @@ const ACTIVITES_PHYSIQUES = ACTIVITES.filter(cle => cle !== 'regime');
    ne se marchent pas dessus quand les deux courbes se croisent.
 
    En dessous de 22 px entre deux points, les nombres se chevaucheraient :
-   on ne garde alors que les pastilles. C'est le cas d'un Bilan mensuel,
-   où trente et un jours ne laissent que 11 px. */
+   on ne garde alors que les pastilles. */
 function pointsDeCourbe(valeurs, versX, versY, couleur, decalageY, montrerValeurs) {
   return valeurs.map((valeur, i) => {
     const x = versX(i), y = versY(valeur);
@@ -1926,8 +1931,6 @@ function grapheParJour(cleDebut, cleFin) {
   return dessinerGraphe(cles.map(douleurDuJour), cles.map(seancesDuJour), etiquettes, 10, [0, 5, 10], lundis);
 }
 
-const NB_SEMAINES_GRAPHE = 12;
-
 /* Les semaines terminées, de la plus ancienne à la plus récente. La
    semaine en cours est écartée : incomplète, son compte de séances
    creuserait un faux plongeon à droite tous les lundis. */
@@ -1951,40 +1954,183 @@ function seancesDeLaSemaine(bornes) {
     .reduce((total, cle) => total + seancesDuJour(cle), 0);
 }
 
-/* La vue Mois : la vue longue. Un point par semaine terminée, sur les
-   douze dernières, échelle 0 à 20.
-
-   Elle ne suit pas les flèches du Bilan : les tuiles au-dessus changent de
-   mois, ce graphe montre toujours la même fenêtre glissante. C'est
-   assumé — le titre de la tuile le dit — parce qu'un mois isolé ne
-   contient que quatre points, trop peu pour lire quoi que ce soit. */
-function grapheDouzeSemaines() {
-  const semaines = semainesTerminees(NB_SEMAINES_GRAPHE);
+/* La vue 4 semaines : un point par semaine, échelle 0 à 20 — la douleur
+   moyenne de la semaine et ses séances, qui montent à une quinzaine. Les
+   semaines antérieures au suivi sont écartées plutôt que tracées à zéro. */
+function grapheQuatreSemaines(cleDebut) {
+  const semaines = [];
+  const curseur = versDate(cleDebut);
+  for (let i = 0; i < 4; i++) {
+    const bornes = bornesPeriode(curseur, 'semaine');
+    if (bornes.fin >= DATE_DEBUT) semaines.push(bornes);
+    curseur.setDate(curseur.getDate() + 7);
+  }
   if (semaines.length < 2) {
     return '<div class="empty-msg">Il faut deux semaines terminées pour tracer une courbe.</div>';
   }
 
-  /* Douze étiquettes de dates se chevaucheraient : une sur trois, plus la
-     dernière semaine. */
-  const etiquettes = semaines.map((bornes, i) =>
-    (i % 3 === 0 || i === semaines.length - 1) ? dateCourte(bornes.debut) : '');
-
   return dessinerGraphe(
     semaines.map(bornes => douleurMoyenneSur(bornes.debut, bornes.fin) || 0),
     semaines.map(seancesDeLaSemaine),
-    etiquettes,
+    semaines.map(bornes => dateCourte(bornes.debut)),
     20, [0, 5, 10, 15, 20], null
   );
 }
 
-// La semaine montre ses jours ; le mois, la vue longue.
+// La semaine montre ses jours ; les quatre semaines, un point par semaine.
 function grapheBilan(cleDebut, cleFin) {
-  return typePeriodeBilan === 'mois'
-    ? grapheDouzeSemaines()
+  return typePeriodeBilan === 'quatre'
+    ? grapheQuatreSemaines(cleDebut)
     : grapheParJour(cleDebut, cleFin);
 }
 
 
+/* ------------------------------------------------------------
+   LA VUE COMPLÈTE — un an de semaines, dessiné couché
+   ------------------------------------------------------------
+   Le bouton « ⤢ Vue complète » ouvre en plein écran un graphe d'un point
+   par semaine terminée, depuis le début du suivi et jusqu'à 52 semaines.
+
+   Sur un téléphone tenu droit, le graphe est dessiné d'un quart de tour :
+   on tourne le téléphone pour le lire. Pas besoin que l'appareil pivote
+   — l'application reste en portrait, et le verrou de rotation ne gêne
+   pas. Sur un écran déjà large (ordinateur), il s'affiche à l'endroit.
+
+   Un appui sur une semaine ouvre une bulle avec son détail : à 52
+   points, il n'y a plus la place d'écrire les nombres sur la courbe.
+   ------------------------------------------------------------ */
+
+const NB_SEMAINES_VUE_COMPLETE = 52;
+const MAX_SEMAINES_AVEC_NOMBRES = 12;   // au-delà, les nombres se chevaucheraient
+
+let semaineChoisie = null;   // index dans la vue complète, ou null
+
+function ecranEnPortrait() {
+  return window.innerHeight > window.innerWidth;
+}
+
+function afficherVueComplete() {
+  const semaines = semainesTerminees(NB_SEMAINES_VUE_COMPLETE);
+  const zone = document.getElementById('grapheVueComplete');
+  const bulle = document.getElementById('bulleSemaine');
+
+  document.getElementById('titreVueComplete').textContent = semaines.length < NB_SEMAINES_VUE_COMPLETE
+    ? `Depuis le début · ${semaines.length} semaine${semaines.length > 1 ? 's' : ''}`
+    : `Les ${NB_SEMAINES_VUE_COMPLETE} dernières semaines`;
+
+  if (semaines.length < 2) {
+    zone.innerHTML = '<div class="empty-msg">Il faut deux semaines terminées pour tracer une courbe.</div>';
+    bulle.classList.remove('visible');
+    return;
+  }
+
+  /* Le dessin prend exactement la taille de sa zone, mesurée à
+     l'ouverture : sans ça, les pastilles s'étireraient en ovales. */
+  const largeur = Math.round(zone.clientWidth) || 700;
+  const hauteur = Math.round(zone.clientHeight) || 280;
+  const margeGauche = 28, margeDroite = 14, margeHaut = 18, margeBas = 26;
+  const pas = (largeur - margeGauche - margeDroite) / (semaines.length - 1);
+  const versX = i => margeGauche + i * pas;
+  const versY = v => hauteur - margeBas - (Math.min(v, 20) / 20) * (hauteur - margeBas - margeHaut);
+
+  const douleurs = semaines.map(b => douleurMoyenneSur(b.debut, b.fin) || 0);
+  const seances = semaines.map(seancesDeLaSemaine);
+  const avecNombres = semaines.length <= MAX_SEMAINES_AVEC_NOMBRES;
+
+  // Peu de semaines : une date sous chacune. Beaucoup : le mois, sous sa première semaine.
+  const etiquettes = semaines.map((b, i) => {
+    if (avecNombres) return dateCourte(b.debut);
+    const mois = versDate(b.debut).getMonth();
+    return (i === 0 || versDate(semaines[i - 1].debut).getMonth() !== mois)
+      ? versDate(b.debut).toLocaleDateString('fr-FR', { month: 'short' })
+      : '';
+  });
+
+  const texte = (x, y, contenu, couleur, ancre) =>
+    `<text x="${x}" y="${y}" font-size="10" font-family="-apple-system,sans-serif" fill="${couleur}" text-anchor="${ancre || 'middle'}">${contenu}</text>`;
+  const nombre = v => Number.isInteger(v) ? v : v.toFixed(1).replace('.', ',');
+
+  let svg = '';
+  if (semaineChoisie !== null) {
+    const demiLargeur = Math.max(pas / 2, 6);
+    svg += `<rect x="${versX(semaineChoisie) - demiLargeur}" y="${margeHaut - 8}" width="${demiLargeur * 2}" height="${versY(0) - margeHaut + 8}" fill="#efe9d8" rx="3"/>`;
+  }
+  [0, 5, 10, 15, 20].forEach(v => {
+    svg += `<line x1="${margeGauche}" y1="${versY(v)}" x2="${largeur - margeDroite}" y2="${versY(v)}" stroke="#f0ede4" stroke-width="1"/>`;
+    svg += texte(margeGauche - 6, versY(v) + 3, v, '#9a9284', 'end');
+  });
+  const ligne = valeurs => valeurs.map((v, i) => `${versX(i)},${versY(v)}`).join(' ');
+  svg += `<polyline points="${ligne(seances)}" fill="none" stroke="${'#6b8f7c'}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  svg += `<polyline points="${ligne(douleurs)}" fill="none" stroke="${'#b5654a'}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+
+  const rayon = semaines.length > 30 ? 2.4 : 3.2;
+  [[seances, '#6b8f7c', VALEUR_EN_DESSOUS], [douleurs, '#b5654a', VALEUR_AU_DESSUS]].forEach(([valeurs, couleur, decalage]) => {
+    valeurs.forEach((v, i) => {
+      svg += `<circle cx="${versX(i)}" cy="${versY(v)}" r="${i === semaineChoisie ? rayon + 2 : rayon}" fill="${couleur}"/>`;
+      if (avecNombres) svg += texte(versX(i), versY(v) + decalage, nombre(v), couleur);
+    });
+  });
+  etiquettes.forEach((t, i) => {
+    if (!t) return;
+    // Une date longue au bord déborderait : on l'aligne sur son point par le côté.
+    const ancre = t.length > 4 && i === etiquettes.length - 1 ? 'end' : (t.length > 4 && i === 0 ? 'start' : 'middle');
+    svg += texte(versX(i), hauteur - 8, t, '#9a9284', ancre);
+  });
+  // Une zone d'appui invisible par semaine, sur toute la hauteur : les
+  // pastilles seules sont trop petites pour le pouce.
+  semaines.forEach((_, i) => {
+    svg += `<rect data-semaine="${i}" x="${versX(i) - pas / 2}" y="0" width="${pas}" height="${hauteur}" fill="transparent" style="cursor:pointer"/>`;
+  });
+
+  zone.innerHTML = `<svg viewBox="0 0 ${largeur} ${hauteur}" width="${largeur}" height="${hauteur}" style="display:block;">${svg}</svg>`;
+
+  if (semaineChoisie === null) { bulle.classList.remove('visible'); return; }
+  const choisie = semaines[semaineChoisie];
+  bulle.innerHTML = `
+    <div class="dates">Du ${dateCourte(choisie.debut)} au ${dateCourte(choisie.fin)}</div>
+    <div class="douleur">Douleur moyenne : <b>${nombre(douleurs[semaineChoisie])}</b> /10</div>
+    <div class="seances">Séances : <b>${seances[semaineChoisie]}</b></div>`;
+  // La bulle se pose au-dessus de sa semaine, sans sortir de l'écran.
+  bulle.style.left = `clamp(95px, ${versX(semaineChoisie)}px, calc(100% - 95px))`;
+  bulle.classList.add('visible');
+}
+
+function ouvrirVueComplete() {
+  semaineChoisie = null;
+  const fenetre = document.getElementById('vueComplete');
+  fenetre.classList.toggle('couchee', ecranEnPortrait());
+  fenetre.classList.add('ouverte');
+  afficherVueComplete();   // après l'ouverture : la zone doit avoir sa taille
+}
+
+function fermerVueComplete() {
+  document.getElementById('vueComplete').classList.remove('ouverte');
+}
+
+// Le bouton est redessiné avec le Bilan : on écoute donc sur la zone qui le contient.
+document.getElementById('contenuBilan').addEventListener('click', evenement => {
+  if (evenement.target.closest('#btnVueComplete')) ouvrirVueComplete();
+});
+document.getElementById('btnFermerVueComplete').addEventListener('click', fermerVueComplete);
+document.addEventListener('keydown', evenement => {
+  if (evenement.key === 'Escape') fermerVueComplete();
+});
+
+// Un appui sur une semaine ouvre sa bulle ; sur la même, ou à côté, la referme.
+document.getElementById('grapheVueComplete').addEventListener('click', evenement => {
+  const cible = evenement.target.closest('[data-semaine]');
+  const index = cible ? Number(cible.dataset.semaine) : null;
+  semaineChoisie = (index === semaineChoisie) ? null : index;
+  afficherVueComplete();
+});
+
+// Fenêtre redimensionnée ou téléphone tourné : on redessine à la bonne taille.
+window.addEventListener('resize', () => {
+  const fenetre = document.getElementById('vueComplete');
+  if (!fenetre.classList.contains('ouverte')) return;
+  fenetre.classList.toggle('couchee', ecranEnPortrait());
+  afficherVueComplete();
+});
 
 
 /* ============================================================
