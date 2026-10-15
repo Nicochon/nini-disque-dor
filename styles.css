@@ -577,6 +577,60 @@ body.mode-lecture input[type="text"] {
 .questions-posees[open] > summary .titre::after { content: ' ▴'; }
 .questions-posees > summary .compte { font-weight: 700; }
 
+/* --- Médical --- */
+.card h2 .source { text-transform: none; letter-spacing: 0; font-weight: 400; color: #9a9284; font-size: 0.7rem; margin-left: 6px; }
+.sous-titre { font-family: var(--sans); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: #9a9284; margin: 14px 0 6px; }
+
+/* Les repères en tête de carte : dernière séance, prochaine visite… */
+.reperes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; font-family: var(--sans); }
+.repere { position: relative; border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; background: #fdfcf9; }
+.repere.large { grid-column: 1 / -1; }
+.repere .libelle { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--sage-deep); }
+.repere .valeur { font-size: 1rem; font-weight: 700; margin-top: 2px; }
+.repere .valeur small { font-weight: 400; color: #6b6459; font-size: 0.75rem; }
+.repere .note { font-size: 0.78rem; color: #6b6459; margin-top: 3px; font-style: italic; overflow-wrap: anywhere; }
+.repere.vide .valeur { color: #9a9284; font-weight: 400; font-size: 0.85rem; }
+.repere.prochain { border-color: var(--sage); background: linear-gradient(180deg, #f3f8f4, #e9f1eb); padding-right: 52px; }
+.repere.prochain .btn-suppr { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); }
+
+/* Un bouton pleine largeur qui s'efface devant son formulaire. */
+.btn-ligne {
+  width: 100%; min-height: 44px; margin-bottom: 6px;
+  font-family: var(--sans); font-size: 0.85rem; font-weight: 600;
+  background: none; color: var(--sage-deep); border: 1px solid var(--sage); border-radius: 8px; cursor: pointer;
+}
+.btn-ligne.leger { font-weight: 400; }
+.btn-ligne:active { background: #f3f1ea; }
+.formulaire { display: none; border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin-bottom: 8px; background: #fdfcf9; }
+.formulaire.ouvert { display: block; }
+.formulaire label { font-size: 0.75rem; color: #6b6459; margin: 8px 0 4px; }
+.formulaire label:first-child { margin-top: 0; }
+.formulaire .boutons { display: flex; gap: 8px; margin-top: 12px; }
+.formulaire .annuler {
+  min-height: 44px; padding: 12px 16px; font-family: var(--sans); font-size: 0.85rem;
+  background: white; color: #6b6459; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+}
+
+/* Les listes repliées : visites passées, examens. */
+details.replie { margin-top: 10px; border-top: 1px solid var(--line); font-family: var(--sans); }
+details.replie > summary {
+  display: flex; justify-content: space-between; align-items: center; min-height: 44px;
+  padding: 10px 0; font-size: 0.82rem; color: #6b6459; cursor: pointer; list-style: none;
+}
+details.replie > summary::-webkit-details-marker { display: none; }
+details.replie > summary .titre::after { content: ' ▾'; font-size: 0.68rem; color: #9a9284; }
+details.replie[open] > summary .titre::after { content: ' ▴'; }
+details.replie > summary .compte { font-weight: 700; }
+details.replie.examens { margin-top: 0; border-top: none; }
+details.replie.examens > summary { padding: 0; }
+details.replie.examens > summary .titre { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--sage-deep); font-weight: 600; }
+.ligne { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0ede4; font-size: 0.82rem; }
+.ligne:last-of-type { border-bottom: none; }
+.ligne .date { color: var(--sage-deep); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; min-width: 58px; }
+.ligne .quoi { flex: 1; overflow-wrap: anywhere; }
+.ligne .quoi i { color: #6b6459; }
+#listeExamens + .ecriture { margin-top: 8px; }
+
 /* --- Vue complète du Bilan --- */
 .btn-vue-complete {
   width: 100%; margin-top: 12px; padding: 12px; min-height: 44px;

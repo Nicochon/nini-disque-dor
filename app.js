@@ -36,7 +36,8 @@ let donnees = {
   poids: [],    // [{ id, date, weight }]
   rameur: [],   // [{ id, date, temps }] — uniquement les records battus
   bonus: [],    // [{ id, date, activite }] — le sport fait EN PLUS du minimum
-  questions: [] // [{ id, pro, texte, cree_le, posee_le }] — posee_le null = encore à poser
+  questions: [], // [{ id, pro, texte, cree_le, posee_le }] — posee_le null = encore à poser
+  visites: []    // [{ id, type, date, texte }] — type 'docteur' ou 'examen'
 };
 
 // Les exercices kiné se font en deux temps : le renforcement et la mobilité.
@@ -172,16 +173,17 @@ async function executer(action, messageSucces) {
 async function chargerDonnees() {
   afficherStatut('Chargement…', 'chargement');
   try {
-    const [resJours, resPoids, resRameur, resBonus, resQuestions] = await Promise.all([
+    const [resJours, resPoids, resRameur, resBonus, resQuestions, resVisites] = await Promise.all([
       bdd.from('days').select('*'),
       bdd.from('weights').select('*').order('date', { ascending: true }),
       bdd.from('rameur').select('*').order('date', { ascending: false }),
       bdd.from('bonus').select('*').order('date', { ascending: false }),
-      bdd.from('questions').select('*').order('cree_le', { ascending: true })
+      bdd.from('questions').select('*').order('cree_le', { ascending: true }),
+      bdd.from('visites').select('*').order('date', { ascending: false })
     ]);
 
     const erreur = resJours.error || resPoids.error || resRameur.error || resBonus.error
-                || resQuestions.error;
+                || resQuestions.error || resVisites.error;
     if (erreur) {
       afficherStatut('Erreur de chargement : ' + erreur.message, 'erreur');
       return false;
@@ -193,6 +195,7 @@ async function chargerDonnees() {
     donnees.rameur = resRameur.data || [];
     donnees.bonus  = resBonus.data  || [];
     donnees.questions = resQuestions.data || [];
+    donnees.visites = resVisites.data || [];
 
     masquerStatut();
     return true;
@@ -215,6 +218,7 @@ function toutAfficher() {
   afficherGrilleBonus();
   afficherBonusDuJour();
   afficherQuestions();
+  afficherMedical();
   afficherBilan();
 }
 
@@ -1222,7 +1226,7 @@ document.getElementById('btnBonusAutre').addEventListener('click', async () => {
 
 
 /* ============================================================
-   13 bis. QUESTIONS AUX PROFESSIONNELS
+   13 bis. MÉDICAL — QUESTIONS AUX PROFESSIONNELS
    ============================================================
    On les note au fil des jours, on les relit au rendez-vous. Cocher une
    question la marque « posée » : elle quitte la liste et rejoint un
@@ -1300,7 +1304,7 @@ async function marquerQuestion(id, poseeLe) {
   afficherQuestions();
 }
 
-document.getElementById('vue-questions').addEventListener('click', evenement => {
+document.getElementById('vue-medical').addEventListener('click', evenement => {
   const ajout = evenement.target.closest('[data-ajout-question]');
   if (ajout) { ajouterQuestion(ajout.dataset.ajoutQuestion); return; }
 
@@ -1312,9 +1316,207 @@ document.getElementById('vue-questions').addEventListener('click', evenement => 
 });
 
 // Entrée dans le champ vaut un appui sur « Ajouter ».
-document.getElementById('vue-questions').addEventListener('keydown', evenement => {
+document.getElementById('vue-medical').addEventListener('keydown', evenement => {
   const champ = evenement.target.closest('[data-champ-question]');
   if (champ && evenement.key === 'Enter') ajouterQuestion(champ.dataset.champQuestion);
+});
+
+
+/* ============================================================
+   13 ter. MÉDICAL — LE KINÉ, LE DOCTEUR, LES EXAMENS
+   ============================================================
+   Le kiné ne demande aucune saisie ici : ses séances sont la case
+   « séance kiné » de l'onglet Jour, on se contente de les relire.
+
+   Le docteur et les examens vivent dans la table visites. Une visite
+   datée dans le futur est la prochaine : le jour venu, elle devient
+   d'elle-même la dernière, sans rien mettre à jour.
+   ------------------------------------------------------------ */
+
+// « mercredi 14 oct. »
+function dateAvecJour(cle) {
+  return versDate(cle).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' });
+}
+
+// « aujourd'hui », « il y a 13 jours », « dans 22 jours ».
+function ecartAujourdhui(cle) {
+  const jours = Math.round((versDate(cle) - versDate(aujourdhui())) / 86400000);
+  if (jours === 0) return 'aujourd\'hui';
+  if (jours === -1) return 'hier';
+  if (jours === 1) return 'demain';
+  return jours < 0 ? `il y a ${-jours} jours` : `dans ${jours} jours`;
+}
+
+function visitesDocteur() {
+  const aujourd = aujourdhui();
+  const toutes = donnees.visites.filter(v => v.type === 'docteur');
+  return {
+    // Les plus récentes d'abord.
+    passees: toutes.filter(v => v.date <= aujourd).sort((a, b) => b.date.localeCompare(a.date)),
+    // La plus proche d'abord : c'est elle, la prochaine.
+    aVenir: toutes.filter(v => v.date > aujourd).sort((a, b) => a.date.localeCompare(b.date))
+  };
+}
+
+function afficherMedical() {
+  // --- Kiné : relu dans les jours ---
+  const seancesKine = Object.keys(donnees.jours)
+    .filter(cle => donnees.jours[cle].kine_seance && cle <= aujourdhui())
+    .sort();
+  const moisEnCours = aujourdhui().slice(0, 7);
+  const nomMois = new Date().toLocaleDateString('fr-FR', { month: 'long' });
+  const ceMois = seancesKine.filter(cle => cle.startsWith(moisEnCours)).length;
+  const derniere = seancesKine[seancesKine.length - 1];
+  const pluriel = n => n > 1 ? 'séances' : 'séance';
+
+  document.getElementById('reperesKine').innerHTML = `
+    <div class="reperes">
+      <div class="repere large${derniere ? '' : ' vide'}">
+        <div class="libelle">Dernière séance</div>
+        <div class="valeur">${derniere
+          ? `${dateAvecJour(derniere)} <small>· ${ecartAujourdhui(derniere)}</small>`
+          : 'Aucune séance cochée pour l\'instant'}</div>
+      </div>
+      <div class="repere">
+        <div class="libelle">En ${nomMois}</div>
+        <div class="valeur">${ceMois} <small>${pluriel(ceMois)}</small></div>
+      </div>
+      <div class="repere">
+        <div class="libelle">Depuis le début</div>
+        <div class="valeur">${seancesKine.length} <small>${pluriel(seancesKine.length)}</small></div>
+      </div>
+    </div>`;
+
+  // --- Docteur ---
+  const { passees, aVenir } = visitesDocteur();
+  const derniereVisite = passees[0];
+  const prochaine = aVenir[0];
+  const note = v => v.texte ? `<div class="note">« ${echapper(v.texte)} »</div>` : '';
+
+  document.getElementById('reperesDocteur').innerHTML = `
+    <div class="reperes">
+      <div class="repere large${derniereVisite ? '' : ' vide'}">
+        <div class="libelle">Dernière visite</div>
+        <div class="valeur">${derniereVisite
+          ? `${dateAvecJour(derniereVisite.date)} <small>· ${ecartAujourdhui(derniereVisite.date)}</small>`
+          : 'Aucune visite notée'}</div>
+        ${derniereVisite ? note(derniereVisite) : ''}
+      </div>
+      ${prochaine ? `
+      <div class="repere large prochain">
+        <div class="libelle">Prochaine visite</div>
+        <div class="valeur">${dateAvecJour(prochaine.date)} <small>· ${ecartAujourdhui(prochaine.date)}</small></div>
+        <button class="btn-suppr ecriture" data-table="visites" data-id="${prochaine.id}" aria-label="Annuler ce rendez-vous">✕</button>
+      </div>` : ''}
+    </div>`;
+
+  document.getElementById('btnProchaine').textContent =
+    prochaine ? '📅 Déplacer la prochaine visite' : '📅 Prochaine visite';
+
+  document.getElementById('visitesPassees').innerHTML = passees.length === 0 ? '' : `
+    <details class="replie">
+      <summary><span class="titre">Visites passées</span><span class="compte">${passees.length}</span></summary>
+      ${passees.map(v => `
+        <div class="ligne">
+          <span class="date">${dateCourte(v.date)}</span>
+          <span class="quoi">Visite${v.texte ? ` <i>— ${echapper(v.texte)}</i>` : ''}</span>
+          <button class="btn-suppr ecriture" data-table="visites" data-id="${v.id}">✕</button>
+        </div>`).join('')}
+    </details>`;
+
+  // --- Examens ---
+  const examens = donnees.visites.filter(v => v.type === 'examen')
+    .sort((a, b) => b.date.localeCompare(a.date));
+  document.getElementById('nbExamens').textContent = examens.length;
+  document.getElementById('listeExamens').innerHTML = examens.length === 0
+    ? '<div class="empty-msg">Aucun examen noté.</div>'
+    : examens.map(v => `
+      <div class="ligne">
+        <span class="date">${dateCourte(v.date)}</span>
+        <span class="quoi">${echapper(v.texte)}</span>
+        <button class="btn-suppr ecriture" data-table="visites" data-id="${v.id}">✕</button>
+      </div>`).join('');
+}
+
+// Un formulaire s'ouvre à la place de son bouton, et inversement.
+function basculerFormulaire(id, ouvrir) {
+  document.getElementById(id).classList.toggle('ouvert', ouvrir);
+  document.querySelector(`[data-ouvrir="${id}"]`).style.display = ouvrir ? 'none' : '';
+}
+
+async function enregistrerVisite(ligne, message) {
+  if (verrouille()) return false;
+  const { data, error } = await bdd.from('visites').insert(ligne).select();
+  if (error) { afficherStatut('Erreur : ' + error.message, 'erreur'); return false; }
+  donnees.visites.push(data[0]);
+  afficherStatut(message, 'ok');
+  afficherMedical();
+  return true;
+}
+
+document.getElementById('vue-medical').addEventListener('click', async evenement => {
+  const ouvrir = evenement.target.closest('[data-ouvrir]');
+  if (ouvrir) {
+    const id = ouvrir.dataset.ouvrir;
+    // Des dates de départ utiles : aujourd'hui pour ce qui vient d'avoir
+    // lieu, la date déjà prévue pour un rendez-vous qu'on déplace.
+    if (id === 'formVisite') document.getElementById('champDateVisite').value = aujourdhui();
+    if (id === 'formExamen') document.getElementById('champDateExamen').value = aujourdhui();
+    if (id === 'formProchaine') {
+      const prochaine = visitesDocteur().aVenir[0];
+      document.getElementById('champDateProchaine').value = prochaine ? prochaine.date : '';
+    }
+    basculerFormulaire(id, true);
+    return;
+  }
+
+  const fermer = evenement.target.closest('[data-fermer]');
+  if (fermer) { basculerFormulaire(fermer.dataset.fermer, false); return; }
+
+  if (evenement.target.closest('[data-enregistrer-visite]')) {
+    const date = document.getElementById('champDateVisite').value;
+    if (!date) { afficherStatut('Choisis une date', 'erreur'); return; }
+    const texte = document.getElementById('champNoteVisite').value.trim() || null;
+    if (await enregistrerVisite({ type: 'docteur', date, texte }, 'Visite notée ✓')) {
+      document.getElementById('champNoteVisite').value = '';
+      basculerFormulaire('formVisite', false);
+    }
+    return;
+  }
+
+  if (evenement.target.closest('[data-enregistrer-prochaine]')) {
+    if (verrouille()) return;
+    const date = document.getElementById('champDateProchaine').value;
+    if (!date) { afficherStatut('Choisis une date', 'erreur'); return; }
+    if (date <= aujourdhui()) { afficherStatut('Un prochain rendez-vous se prend dans le futur', 'erreur'); return; }
+
+    // Une prochaine visite existe déjà : on la déplace plutôt que d'en
+    // ajouter une deuxième.
+    const prochaine = visitesDocteur().aVenir[0];
+    if (prochaine) {
+      const ok = await executer(
+        () => bdd.from('visites').update({ date }).eq('id', prochaine.id),
+        'Rendez-vous déplacé ✓');
+      if (!ok) return;
+      prochaine.date = date;
+      afficherMedical();
+      basculerFormulaire('formProchaine', false);
+    } else if (await enregistrerVisite({ type: 'docteur', date, texte: null }, 'Rendez-vous noté ✓')) {
+      basculerFormulaire('formProchaine', false);
+    }
+    return;
+  }
+
+  if (evenement.target.closest('[data-enregistrer-examen]')) {
+    const texte = document.getElementById('champNomExamen').value.trim();
+    const date = document.getElementById('champDateExamen').value;
+    if (!texte) { afficherStatut('Écris le nom de l\'examen', 'erreur'); return; }
+    if (!date) { afficherStatut('Choisis une date', 'erreur'); return; }
+    if (await enregistrerVisite({ type: 'examen', date, texte }, 'Examen noté ✓')) {
+      document.getElementById('champNomExamen').value = '';
+      basculerFormulaire('formExamen', false);
+    }
+  }
 });
 
 
@@ -1373,6 +1575,9 @@ document.addEventListener('click', async evenement => {
     } else if (table === 'questions') {
       donnees.questions = donnees.questions.filter(entree => entree.id !== id);
       afficherQuestions();
+    } else if (table === 'visites') {
+      donnees.visites = donnees.visites.filter(entree => entree.id !== id);
+      afficherMedical();
     } else {
       donnees.bonus = donnees.bonus.filter(entree => entree.id !== id);
       afficherBonusDuJour();
@@ -1410,6 +1615,9 @@ function construireExport() {
     questions: donnees.questions.map(e => ({
       pro: e.pro, texte: e.texte, cree_le: isoVersFr(e.cree_le),
       ...(e.posee_le ? { posee_le: isoVersFr(e.posee_le) } : {})
+    })),
+    visites: donnees.visites.map(e => ({
+      type: e.type, date: isoVersFr(e.date), ...(e.texte ? { texte: e.texte } : {})
     }))
   };
 }
@@ -1527,6 +1735,22 @@ document.getElementById('btnRestaurer').addEventListener('click', async () => {
                 && !dejaLa.has(signatureQuestion(e)));
     if (lignesQuestions.length) {
       const { error } = await bdd.from('questions').insert(lignesQuestions);
+      if (error) throw error;
+    }
+
+    // Les visites et examens : même protection, sur (type + date + texte).
+    const signatureVisite = e => e.type + '|' + e.date + '|' + (e.texte || '');
+    const visitesDejaLa = new Set(donnees.visites.map(signatureVisite));
+    const lignesVisites = (importe.visites || [])
+      .map(e => ({
+        type: e.type,
+        date: normaliserDate(e.date),
+        texte: String(e.texte || '').trim() || null
+      }))
+      .filter(e => (e.type === 'docteur' || (e.type === 'examen' && e.texte)) && e.date
+                && !visitesDejaLa.has(signatureVisite(e)));
+    if (lignesVisites.length) {
+      const { error } = await bdd.from('visites').insert(lignesVisites);
       if (error) throw error;
     }
 
@@ -2291,7 +2515,7 @@ window.addEventListener('resize', () => {
    les onglets un par un au lieu de quitter l'application.
    ------------------------------------------------------------ */
 
-const VUES = ['jour', 'poids', 'bilan', 'seances', 'questions', 'reglages'];
+const VUES = ['jour', 'poids', 'bilan', 'seances', 'medical', 'reglages'];
 const VUE_PAR_DEFAUT = 'jour';
 
 function activerVue(nom) {
@@ -2304,6 +2528,8 @@ function activerVue(nom) {
     onglet.classList.toggle('actif', onglet.dataset.vue === nom);
   });
   document.getElementById('btnReglages').classList.toggle('actif', nom === 'reglages');
+  // Les séances kiné se cochent dans Jour : on relit au moment d'ouvrir.
+  if (nom === 'medical') afficherMedical();
 
   history.replaceState(null, '', '#' + nom);
   window.scrollTo(0, 0);   // on arrive en haut de l'onglet, pas au milieu

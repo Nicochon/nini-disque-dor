@@ -68,7 +68,7 @@
 <div class="wrap">
   <header>
     <!-- Les réglages s'ouvrent d'ici et non depuis la barre du bas : on y
-         passe rarement, et leur place en bas est allée aux questions. -->
+         passe rarement, et leur place en bas est allée à l'onglet Médical. -->
     <div class="titre-ligne">
       <button id="btnReglages" aria-label="Réglages">
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -333,12 +333,14 @@
   </section>
 
   <!-- ============================================================
-       ONGLET « QUESTIONS » — ce qu'on veut demander au prochain rendez-vous
+       ONGLET « MÉDICAL » — le kiné, le docteur, les examens
        ============================================================ -->
-  <section class="vue" id="vue-questions">
-  <!-- Une carte par professionnel ; les listes sont remplies par app.js. -->
+  <section class="vue" id="vue-medical">
+  <!-- Une carte par professionnel ; les contenus sont remplis par app.js. -->
   <div class="card">
-    <h2>Kiné</h2>
+    <h2>Kiné <span class="source">d'après l'onglet Jour</span></h2>
+    <div id="reperesKine"></div>
+    <div class="sous-titre">Questions à poser</div>
     <div class="row2 ecriture">
       <input type="text" id="champQuestion-kine" data-champ-question="kine" placeholder="Une question pour le kiné…">
       <button class="add" data-ajout-question="kine">Ajouter</button>
@@ -348,11 +350,58 @@
 
   <div class="card">
     <h2>Docteur</h2>
+    <div id="reperesDocteur"></div>
+
+    <div class="ecriture">
+      <button class="btn-ligne" data-ouvrir="formVisite">＋ Noter une visite</button>
+      <div class="formulaire" id="formVisite">
+        <label for="champDateVisite">Date de la visite</label>
+        <input type="date" id="champDateVisite">
+        <label for="champNoteVisite">Note (facultatif)</label>
+        <input type="text" id="champNoteVisite" placeholder="Ex. : IRM prescrite, 10 séances de kiné en plus…">
+        <div class="boutons">
+          <button class="add" data-enregistrer-visite>Enregistrer</button>
+          <button class="annuler" data-fermer="formVisite">Annuler</button>
+        </div>
+      </div>
+      <button class="btn-ligne leger" data-ouvrir="formProchaine" id="btnProchaine">📅 Prochaine visite</button>
+      <div class="formulaire" id="formProchaine">
+        <label for="champDateProchaine">Date du prochain rendez-vous</label>
+        <input type="date" id="champDateProchaine">
+        <div class="boutons">
+          <button class="add" data-enregistrer-prochaine>Enregistrer</button>
+          <button class="annuler" data-fermer="formProchaine">Annuler</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sous-titre">Questions à poser</div>
     <div class="row2 ecriture">
       <input type="text" id="champQuestion-docteur" data-champ-question="docteur" placeholder="Une question pour le docteur…">
       <button class="add" data-ajout-question="docteur">Ajouter</button>
     </div>
     <div id="questions-docteur" style="margin-top:8px;"></div>
+    <div id="visitesPassees"></div>
+  </div>
+
+  <div class="card">
+    <details class="replie examens">
+      <summary><span class="titre">Examens</span><span class="compte" id="nbExamens">0</span></summary>
+      <div id="listeExamens"></div>
+      <div class="ecriture">
+        <button class="btn-ligne" data-ouvrir="formExamen">＋ Noter un examen</button>
+        <div class="formulaire" id="formExamen">
+          <label for="champNomExamen">Examen</label>
+          <input type="text" id="champNomExamen" placeholder="Ex. : prise de sang, radio, IRM…">
+          <label for="champDateExamen">Date</label>
+          <input type="date" id="champDateExamen">
+          <div class="boutons">
+            <button class="add" data-enregistrer-examen>Enregistrer</button>
+            <button class="annuler" data-fermer="formExamen">Annuler</button>
+          </div>
+        </div>
+      </div>
+    </details>
   </div>
   </section>
 
@@ -422,7 +471,7 @@
   <button class="onglet" data-vue="poids"><span class="icon">⚖️</span><span class="label">Poids</span></button>
   <button class="onglet" data-vue="bilan"><span class="icon">📊</span><span class="label">Bilan</span></button>
   <button class="onglet" data-vue="seances"><span class="icon">🏋️</span><span class="label">Séances</span></button>
-  <button class="onglet" data-vue="questions"><span class="icon">🩺</span><span class="label">Questions</span></button>
+  <button class="onglet" data-vue="medical"><span class="icon">🩺</span><span class="label">Médical</span></button>
 </nav>
 </div>
 
