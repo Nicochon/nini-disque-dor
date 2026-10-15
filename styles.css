@@ -191,6 +191,32 @@ textarea { width: 100%; padding: 10px; border: 1px solid var(--line); border-rad
 .resume-poids.mieux { background: linear-gradient(180deg, #f3f8f4, #e9f1eb); border-color: var(--sage); }
 .resume-poids.mieux .chiffre { color: var(--sage-deep); }
 
+/* --- Poids : la courbe et ses paliers, la bulle d'une pesée --- */
+.courbe-poids { position: relative; margin-top: 10px; }
+.courbe-poids svg { width: 100%; height: auto; display: block; }
+#bullePoids {
+  position: absolute; transform: translate(-50%, -100%); display: none; pointer-events: none;
+  background: var(--ink); color: white; border-radius: 7px; padding: 6px 9px;
+  font-family: var(--sans); font-size: 0.72rem; white-space: nowrap;
+}
+#bullePoids.visible { display: block; }
+#bullePoids b { font-size: 0.85rem; }
+.aide-courbe { font-family: var(--sans); font-size: 0.68rem; color: #9a9284; text-align: center; margin-top: 4px; }
+
+/* La liste repliée : seule la dernière pesée est visible. */
+.liste-pesees { margin-top: 14px; border-top: 1px solid var(--line); }
+.liste-pesees > summary {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 12px 0 4px;
+  font-family: var(--sans); cursor: pointer; list-style: none;
+}
+.liste-pesees > summary::-webkit-details-marker { display: none; }
+.liste-pesees .derniere-libelle { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--sage-deep); }
+.liste-pesees .derniere-valeur { font-size: 1rem; font-weight: 700; }
+.liste-pesees .derniere-date { font-size: 0.75rem; color: #6b6459; }
+.liste-pesees .ouvrir { margin-left: auto; font-size: 0.75rem; color: #9a9284; white-space: nowrap; }
+.liste-pesees .ouvrir::after { content: ' ▾'; }
+.liste-pesees[open] .ouvrir::after { content: ' ▴'; }
+
 /* --- Programmes : les listes d'exercices, en lecture seule --- */
 /* Aucune case à cocher ici : ces cartes sont un aide-mémoire, la
    validation des séances se fait dans l'onglet Jour. */

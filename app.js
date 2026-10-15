@@ -751,11 +751,55 @@ function afficherResumePoids() {
     </div>`;
 }
 
+/* Les paliers des badges « Sous les … kg ». La courbe les trace en
+   pointillé : doré une fois franchi, gris tant qu'il reste à passer. */
+const PALIERS_POIDS = [95, 90, 85, 80];
+
+// Les pesées telles que dessinées, gardées pour la bulle au toucher.
+let pointsCourbePoids = [];
+
+const kgCourt = valeur => Number(valeur).toFixed(1).replace('.', ',');
+
+/* Une courbe lissée qui passe par chaque pesée sans inventer de bosse
+   entre deux (interpolation monotone) : entre deux pesées qui
+   descendent, le trait ne remonte jamais. */
+function cheminLissePoids(pts) {
+  const n = pts.length;
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  if (n === 2) return d + ` L${pts[1][0]},${pts[1][1]}`;
+
+  const ecarts = [], pentes = [];
+  for (let i = 0; i < n - 1; i++) {
+    ecarts.push(pts[i + 1][0] - pts[i][0]);
+    pentes.push((pts[i + 1][1] - pts[i][1]) / ecarts[i]);
+  }
+  const tangentes = [pentes[0]];
+  for (let i = 1; i < n - 1; i++) {
+    tangentes.push(pentes[i - 1] * pentes[i] <= 0 ? 0 : (pentes[i - 1] + pentes[i]) / 2);
+  }
+  tangentes.push(pentes[n - 2]);
+  for (let i = 0; i < n - 1; i++) {
+    if (pentes[i] === 0) { tangentes[i] = tangentes[i + 1] = 0; continue; }
+    const a = tangentes[i] / pentes[i], b = tangentes[i + 1] / pentes[i], somme = a * a + b * b;
+    if (somme > 9) {
+      const k = 3 / Math.sqrt(somme);
+      tangentes[i] = k * a * pentes[i];
+      tangentes[i + 1] = k * b * pentes[i];
+    }
+  }
+  for (let i = 0; i < n - 1; i++) {
+    const h = ecarts[i] / 3;
+    d += ` C${pts[i][0] + h},${pts[i][1] + tangentes[i] * h} ${pts[i + 1][0] - h},${pts[i + 1][1] - tangentes[i + 1] * h} ${pts[i + 1][0]},${pts[i + 1][1]}`;
+  }
+  return d;
+}
+
 function afficherCourbePoids() {
   const zone = document.getElementById('zoneCourbePoids');
   const points = [...donnees.poids]
     .filter(entree => entree.weight !== null)
     .sort((a, b) => a.date.localeCompare(b.date));
+  pointsCourbePoids = [];
 
   if (points.length === 0) {
     zone.innerHTML = '<div class="empty-msg">Pas encore de pesée enregistrée.</div>';
@@ -767,54 +811,153 @@ function afficherCourbePoids() {
   }
 
   const valeurs = points.map(entree => Number(entree.weight));
-  const mini = Math.min(...valeurs) - 1;
-  const maxi = Math.max(...valeurs) + 1;
+  const mini = Math.floor(Math.min(...valeurs) - 0.5);
+  const maxi = Math.ceil(Math.max(...valeurs) + 0.5);
 
-  const largeur = 360, hauteur = 190, marge = 26, margeHaut = 20;
-  const pasX = (largeur - marge * 2) / (points.length - 1);
-  const versY = valeur => hauteur - marge - ((valeur - mini) / (maxi - mini)) * (hauteur - marge - margeHaut);
+  const largeur = 360, hauteur = 210, gauche = 30, droite = 14, haut = 22, bas = 26;
+  const police = 'font-family="-apple-system,sans-serif"';
 
-  const ligne = points.map((entree, i) => `${marge + i * pasX},${versY(entree.weight)}`).join(' ');
+  // Un vrai axe de temps : une semaine sautée laisse sa place sur la courbe.
+  const t0 = versDate(points[0].date).getTime();
+  const t1 = versDate(points[points.length - 1].date).getTime();
+  const versX = cle => gauche + (versDate(cle).getTime() - t0) / (t1 - t0) * (largeur - gauche - droite);
+  const versY = valeur => haut + (maxi - valeur) / (maxi - mini) * (hauteur - haut - bas);
+  const pts = points.map(entree => [versX(entree.date), versY(Number(entree.weight))]);
 
-  // Au-delà de 10 pesées, les étiquettes se chevaucheraient :
-  // on n'affiche alors que la première, la dernière et la plus basse.
-  const indexPlusBas = valeurs.indexOf(Math.min(...valeurs));
-  const afficherToutesLesValeurs = points.length <= 10;
+  let svg = `
+    <defs>
+      <linearGradient id="airePoids" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#6b8f7c" stop-opacity="0.32"/>
+        <stop offset="1" stop-color="#6b8f7c" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>`;
 
-  const cercles = points.map((entree, i) => {
-    const x = marge + i * pasX;
-    const y = versY(entree.weight);
-    const montrer = afficherToutesLesValeurs || i === 0 || i === points.length - 1 || i === indexPlusBas;
-    const etiquette = montrer
-      ? `<text x="${x}" y="${y - 9}" font-size="10" font-family="-apple-system,sans-serif" fill="#1f2d28" text-anchor="middle">${entree.weight}</text>`
-      : '';
-    return `<circle cx="${x}" cy="${y}" r="3.5" fill="#47665a"/>${etiquette}`;
-  }).join('');
+  // Le début de chaque mois, en bas.
+  const debutMois = versDate(points[0].date);
+  debutMois.setDate(1);
+  debutMois.setMonth(debutMois.getMonth() + 1);
+  while (debutMois.getTime() <= t1) {
+    const x = gauche + (debutMois.getTime() - t0) / (t1 - t0) * (largeur - gauche - droite);
+    const nom = debutMois.toLocaleDateString('fr-FR', { month: 'short' });
+    svg += `<line x1="${x}" y1="${haut}" x2="${x}" y2="${hauteur - bas}" stroke="#f6f4ee"/>
+      <text x="${x}" y="${hauteur - 8}" font-size="9" ${police} fill="#9a9284" text-anchor="middle">${nom}</text>`;
+    debutMois.setMonth(debutMois.getMonth() + 1);
+  }
+
+  // Les paliers visibles dans la fenêtre, avec une étoile sur la première
+  // pesée passée dessous (la même règle que les badges : strictement sous).
+  PALIERS_POIDS.forEach(palier => {
+    if (palier < mini || palier > maxi) return;
+    const premiere = points.find(entree => Number(entree.weight) < palier);
+    const couleur = premiere ? '#c9a227' : '#d8d3c4';
+    svg += `<line x1="${gauche}" y1="${versY(palier)}" x2="${largeur - droite}" y2="${versY(palier)}" stroke="${couleur}" stroke-dasharray="4 4"/>
+      <text x="${gauche - 6}" y="${versY(palier) + 3}" font-size="9" font-weight="600" ${police} fill="${premiere ? '#c9a227' : '#9a9284'}" text-anchor="end">${palier}</text>`;
+    if (premiere) {
+      // Près du bord droit, l'étoile passe sous la ligne, à gauche du point.
+      const x = versX(premiere.date), aDroite = x > largeur - 90;
+      svg += `<text x="${aDroite ? x - 14 : x + 4}" y="${versY(palier) + (aDroite ? 12 : -4)}" font-size="9" ${police} fill="#a8861c" text-anchor="${aDroite ? 'end' : 'start'}">★ ${dateCourte(premiere.date)}</text>`;
+    }
+  });
+
+  const chemin = cheminLissePoids(pts);
+  const dernier = pts[pts.length - 1];
+  svg += `
+    <path d="${chemin} L${dernier[0]},${hauteur - bas} L${pts[0][0]},${hauteur - bas} Z" fill="url(#airePoids)"/>
+    <path d="${chemin}" fill="none" stroke="#47665a" stroke-width="2.5" stroke-linecap="round"/>`;
+  pts.forEach(([x, y]) => {
+    svg += `<circle cx="${x}" cy="${y}" r="2.8" fill="#fff" stroke="#47665a" stroke-width="1.5"/>`;
+  });
+
+  // Le départ en petit, l'arrivée en avant.
+  svg += `
+    <text x="${pts[0][0] + 2}" y="${pts[0][1] - 8}" font-size="10" ${police} fill="#6b6459">${kgCourt(points[0].weight)}</text>
+    <circle cx="${dernier[0]}" cy="${dernier[1]}" r="9" fill="#47665a" opacity="0.15"/>
+    <circle cx="${dernier[0]}" cy="${dernier[1]}" r="4.5" fill="#47665a" stroke="#fff" stroke-width="1.5"/>
+    <text x="${dernier[0]}" y="${dernier[1] - 12}" font-size="11" font-weight="700" ${police} fill="#1f2d28" text-anchor="end">${kgCourt(points[points.length - 1].weight)}</text>`;
+
+  // Le repère de la pesée touchée, puis les zones d'appui : une bande
+  // invisible par pesée, car un rond de 3 px ne se touche pas au pouce.
+  svg += `<circle id="reperePoids" r="5.5" fill="none" stroke="#b5654a" stroke-width="2" style="display:none"/>`;
+  pts.forEach(([x], i) => {
+    const debut = i === 0 ? gauche : (pts[i - 1][0] + x) / 2;
+    const fin = i === pts.length - 1 ? largeur - droite : (x + pts[i + 1][0]) / 2;
+    svg += `<rect x="${debut}" y="${haut}" width="${fin - debut}" height="${hauteur - haut - bas}" fill="transparent" data-pesee="${i}" style="cursor:pointer"/>`;
+  });
+
+  pointsCourbePoids = points.map((entree, i) => ({ entree, x: pts[i][0], y: pts[i][1] }));
 
   zone.innerHTML = `
-    <svg viewBox="0 0 ${largeur} ${hauteur}" style="width:100%; height:auto; display:block; margin-top:10px;">
-      <line x1="${marge}" y1="${versY(mini)}" x2="${largeur - marge}" y2="${versY(mini)}" stroke="#f0ede4" stroke-width="1"/>
-      <line x1="${marge}" y1="${versY(maxi)}" x2="${largeur - marge}" y2="${versY(maxi)}" stroke="#f0ede4" stroke-width="1"/>
-      <polyline points="${ligne}" fill="none" stroke="#6b8f7c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-      ${cercles}
-    </svg>
-    <div style="display:flex; justify-content:space-between; font-family:var(--sans); font-size:0.72rem; color:#9a9284;">
-      <span>${dateCourte(points[0].date)}</span>
-      <span>${dateCourte(points[points.length - 1].date)}</span>
-    </div>`;
+    <div class="courbe-poids">
+      <svg viewBox="0 0 ${largeur} ${hauteur}">${svg}</svg>
+      <div id="bullePoids"></div>
+    </div>
+    <div class="aide-courbe">Touche un point pour voir la pesée</div>`;
 }
 
+/* La bulle d'une pesée : sa date, son poids, et l'écart avec la pesée
+   d'avant — avec une pesée par semaine, c'est l'évolution de la semaine. */
+document.getElementById('zoneCourbePoids').addEventListener('click', evenement => {
+  const bulle = document.getElementById('bullePoids');
+  const repere = document.getElementById('reperePoids');
+  if (!bulle) return;
+
+  const zoneAppui = evenement.target.closest('[data-pesee]');
+  if (!zoneAppui) {
+    bulle.classList.remove('visible');
+    repere.style.display = 'none';
+    return;
+  }
+
+  const i = Number(zoneAppui.dataset.pesee);
+  const { entree, x, y } = pointsCourbePoids[i];
+  const avant = i > 0 ? Number(entree.weight) - Number(pointsCourbePoids[i - 1].entree.weight) : null;
+  const ecart = avant === null ? ''
+    : Math.abs(avant) < 0.05 ? ' · stable'
+    : ` · ${avant < 0 ? '↓' : '↑'} ${kgCourt(Math.abs(avant))}`;
+
+  repere.setAttribute('cx', x);
+  repere.setAttribute('cy', y);
+  repere.style.display = '';
+  bulle.innerHTML = `${dateCourte(entree.date)} · <b>${kgCourt(entree.weight)} kg</b>${ecart}`;
+  bulle.classList.add('visible');
+
+  // Le SVG est mis à l'échelle de l'écran : on convertit ses coordonnées,
+  // et on garde la bulle entière à l'intérieur de la carte.
+  const svg = bulle.previousElementSibling;
+  const echelle = svg.clientWidth / svg.viewBox.baseVal.width;
+  const demi = bulle.offsetWidth / 2;
+  bulle.style.left = Math.min(Math.max(x * echelle, demi), svg.clientWidth - demi) + 'px';
+  bulle.style.top = (y * echelle - 10) + 'px';
+});
+
+/* La liste des pesées, repliée : on ne voit que la dernière, le reste
+   se déplie au toucher. Repliée ou dépliée, elle le reste quand on
+   ajoute ou supprime une pesée. */
 function afficherListePoids() {
   const zone = document.getElementById('listePoids');
   if (donnees.poids.length === 0) { zone.innerHTML = ''; return; }
 
+  const dejaOuverte = zone.querySelector('details[open]') !== null;
   const triees = [...donnees.poids].sort((a, b) => b.date.localeCompare(a.date));
-  zone.innerHTML = triees.map(entree => `
-    <div class="perf-entry">
-      <span class="perf-date">${dateCourte(entree.date)}</span>
-      <span class="perf-val">${entree.weight} kg</span>
-      <button class="btn-suppr ecriture" data-table="weights" data-date="${entree.date}">✕</button>
-    </div>`).join('');
+  const derniere = triees[0];
+
+  zone.innerHTML = `
+    <details class="liste-pesees"${dejaOuverte ? ' open' : ''}>
+      <summary>
+        <div>
+          <div class="derniere-libelle">Dernière pesée</div>
+          <span class="derniere-valeur">${kgCourt(derniere.weight)} kg</span>
+          <span class="derniere-date">· ${dateCourte(derniere.date)}</span>
+        </div>
+        <span class="ouvrir">${triees.length} pesée${triees.length > 1 ? 's' : ''}</span>
+      </summary>
+      ${triees.map(entree => `
+        <div class="perf-entry">
+          <span class="perf-date">${dateCourte(entree.date)}</span>
+          <span class="perf-val">${kgCourt(entree.weight)} kg</span>
+          <button class="btn-suppr ecriture" data-table="weights" data-date="${entree.date}">✕</button>
+        </div>`).join('')}
+    </details>`;
 }
 
 
